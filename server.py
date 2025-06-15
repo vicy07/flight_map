@@ -15,27 +15,58 @@ app.mount("/", StaticFiles(directory="public", html=True), name="static")
 
 @app.post("/update-airports")
 def update_airports():
-    """Download airport data from OpenFlights and update airports.json."""
-    url = "https://raw.githubusercontent.com/jpatokal/openflights/master/data/airports.dat"
-    resp = requests.get(url)
+    """Download airport and route data from OpenFlights and update JSON files."""
+
+    airports_url = "https://raw.githubusercontent.com/jpatokal/openflights/master/data/airports.dat"
+    routes_url = "https://raw.githubusercontent.com/jpatokal/openflights/master/data/routes.dat"
+
+    # Download airports
+    resp = requests.get(airports_url)
     resp.raise_for_status()
     reader = csv.reader(resp.text.splitlines())
-    airports = []
+    airports = {}
     for row in reader:
         try:
+            airport_id = row[0]
+            name = row[1]
             lat = float(row[6])
             lon = float(row[7])
         except (ValueError, IndexError):
             continue
-        airports.append({
-            "name": row[1],
+        airports[airport_id] = {
+            "name": name,
             "lat": lat,
-            "lon": lon
-        })
+            "lon": lon,
+            "routes": []
+        }
 
-    out_file = Path("public") / "airports.json"
-    out_file.write_text(json.dumps(airports, indent=2))
-    return {"count": len(airports)}
+    # Download routes and attach to airports
+    resp = requests.get(routes_url)
+    resp.raise_for_status()
+    reader = csv.reader(resp.text.splitlines())
+    route_count = 0
+    for row in reader:
+        try:
+            source_id = row[3]
+            dest_id = row[5]
+            if source_id == "\\N" or dest_id == "\\N":
+                continue
+            source = airports.get(source_id)
+            dest = airports.get(dest_id)
+            if not source or not dest:
+                continue
+        except IndexError:
+            continue
+        source["routes"].append({
+            "from": [source["lat"], source["lon"]],
+            "to": [dest["lat"], dest["lon"]]
+        })
+        route_count += 1
+
+    Path("public/airports.json").write_text(
+        json.dumps(list(airports.values()), indent=2)
+    )
+    return {"airports": len(airports), "routes": route_count}
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=int(os.environ.get("PORT", 8000)))

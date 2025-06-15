@@ -26,4 +26,14 @@ docker run -p 8000:8000 flight_map
 
 ## Data
 
-`public/airports.json` contains example data with a small set of airports and routes. Replace this file with data from sources like OpenFlights for real usage.
+`public/airports.json` contains example data with a small set of airports and routes. The dataset can be refreshed from OpenFlights.
+
+### Updating data
+
+Run the `/update-airports` endpoint to download the latest airports and route information from OpenFlights:
+
+```bash
+curl -X POST http://localhost:8000/update-airports
+```
+
+This downloads `airports.dat` and `routes.dat`, generating `public/airports.json` with routes embedded for use by the front-end.
