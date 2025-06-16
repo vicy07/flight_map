@@ -2,7 +2,7 @@
 
 This project provides a minimal example of an interactive airline route map for Europe.
 
-The server uses **FastAPI** to serve the static files from the `public` directory. The front-end relies on Leaflet to display airports and draw routes when an airport marker is clicked. Airport markers are rendered as circles scaled between 3 and 15&nbsp;px in diameter depending on how many outgoing routes they have.
+The server uses **FastAPI** to serve the static files from the `public` directory. The front-end relies on Leaflet to display airports and draw routes when an airport marker is clicked. Airport markers are rendered as circles whose radius scales between 20 and 50&nbsp;px depending on how many outgoing routes they have.
 
 Clicking an airport toggles the display of its routes. Clicking a route highlights
 it for selection; clicking again unselects it. Selected routes are shown in the
@@ -22,7 +22,16 @@ Then open [http://localhost:8000](http://localhost:8000) in your browser.
 
 ## Docker
 
-To build and run the image with a persistent data volume:
+To build and run the image with a persistent data volume you can use Docker
+Compose:
+
+```bash
+docker compose up --build
+```
+
+This mounts the local `./data` directory at `/data` inside the container so
+updated datasets persist between runs. You can still build and run the image
+manually if desired:
 
 ```bash
 docker build -t flight_map .

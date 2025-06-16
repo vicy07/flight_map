@@ -41,8 +41,8 @@ fetch('airports.json')
   .then(data => {
     data = data.filter(a => a.routes && a.routes.length);
     const maxRoutes = Math.max(...data.map(a => a.routes.length));
-    const minRadius = 1.5; // diameter 3
-    const maxRadius = 7.5; // diameter 15
+    const minRadius = 20; // min radius 20px
+    const maxRadius = 50; // max radius 50px
 
     data.forEach(a => {
       const radius = minRadius +
