@@ -8,6 +8,7 @@ L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
 const pathEl = document.getElementById('path');
 const filterSelect = document.getElementById('airline-filter');
 const resetBtn = document.getElementById('reset');
+const resetAirlineBtn = document.getElementById('reset-airline');
 const selectedRoutes = [];
 const routesPane = map.createPane('routes');
 routesPane.style.zIndex = 200;
@@ -41,6 +42,7 @@ function updatePathDisplay() {
     parts.push(item.route.to_name);
   });
   pathEl.textContent = parts.join(' => ');
+  resetBtn.style.display = selectedRoutes.length ? 'inline' : 'none';
 }
 
 function applyFilter() {
@@ -93,6 +95,10 @@ function toggleRouteSelection(line, route) {
 }
 
 filterSelect.addEventListener('change', applyFilter);
+resetAirlineBtn.addEventListener('click', () => {
+  filterSelect.value = '';
+  applyFilter();
+});
 resetBtn.addEventListener('click', () => {
   markers.forEach(m => {
     m.marker.routesLines.forEach(l => map.removeLayer(l));
