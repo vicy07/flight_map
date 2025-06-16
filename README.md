@@ -13,6 +13,8 @@ airports served by a particular carrier. When a filter is active, clicking an
 airport displays only its routes for the chosen airline and marker sizes update
 to reflect only those routes. The **Reset Path**
 button clears all selected routes and hides any displayed lines.
+Routes flown by different airlines use unique colors so overlapping carriers are
+easy to distinguish on the map.
 
 ## Development
 

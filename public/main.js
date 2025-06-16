@@ -14,6 +14,21 @@ routesPane.style.zIndex = 200;
 const markers = [];
 const minRadius = 8;
 const maxRadius = 35;
+const airlineColors = {};
+const colorPalette = [
+  '#e6194B', '#3cb44b', '#ffe119', '#4363d8', '#f58231', '#911eb4',
+  '#46f0f0', '#f032e6', '#bcf60c', '#fabebe', '#008080', '#e6beff',
+  '#9A6324', '#fffac8', '#800000', '#aaffc3', '#808000', '#ffd8b1',
+  '#000075', '#808080'
+];
+
+function getAirlineColor(code) {
+  if (!airlineColors[code]) {
+    const idx = Object.keys(airlineColors).length % colorPalette.length;
+    airlineColors[code] = colorPalette[idx];
+  }
+  return airlineColors[code];
+}
 let airportsData = [];
 
 function updatePathDisplay() {
@@ -65,7 +80,7 @@ function applyFilter() {
 
 function toggleRouteSelection(line, route) {
   if (line.selected) {
-    line.setStyle({ color: 'blue' });
+    line.setStyle({ color: line.originalColor });
     line.selected = false;
     const idx = selectedRoutes.findIndex(r => r.route === route);
     if (idx !== -1) selectedRoutes.splice(idx, 1);
@@ -123,17 +138,19 @@ fetch('airports.json')
             if (airlineFilter && route.airline !== airlineFilter) {
               return;
             }
-            const line = L.polyline(
-              [route.from, route.to],
-              { color: 'blue', pane: 'routes' }
-            )
-              .addTo(map)
-              .bindTooltip(`${route.from_name} - ${route.airline} - ${route.to_name}`);
-            line.route = route;
-            line.on('click', e => {
-              toggleRouteSelection(line, route);
-              L.DomEvent.stopPropagation(e);
-            });
+          const color = getAirlineColor(route.airline);
+          const line = L.polyline(
+            [route.from, route.to],
+            { color, pane: 'routes' }
+          )
+            .addTo(map)
+            .bindTooltip(`${route.from_name} - ${route.airline} - ${route.to_name}`);
+          line.route = route;
+          line.originalColor = color;
+          line.on('click', e => {
+            toggleRouteSelection(line, route);
+            L.DomEvent.stopPropagation(e);
+          });
             marker.routesLines.push(line);
           });
         }
