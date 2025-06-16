@@ -1,0 +1,15 @@
+.git
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+*.db
+*.sqlite3
+.cache
+python_cache/
+.Python
+env/
+venv/
+*/__pycache__
+.DS_Store
+*.egg-info/
