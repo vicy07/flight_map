@@ -6,9 +6,31 @@ L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
 }).addTo(map);
 
 const pathEl = document.getElementById('path');
+const filterSelect = document.getElementById('airline-filter');
+const resetBtn = document.getElementById('reset');
+const resetAirlineBtn = document.getElementById('reset-airline');
 const selectedRoutes = [];
 const routesPane = map.createPane('routes');
 routesPane.style.zIndex = 200;
+const markers = [];
+const minRadius = 8;
+const maxRadius = 35;
+const airlineColors = {};
+const colorPalette = [
+  '#e6194B', '#3cb44b', '#ffe119', '#4363d8', '#f58231', '#911eb4',
+  '#46f0f0', '#f032e6', '#bcf60c', '#fabebe', '#008080', '#e6beff',
+  '#9A6324', '#fffac8', '#800000', '#aaffc3', '#808000', '#ffd8b1',
+  '#000075', '#808080'
+];
+
+function getAirlineColor(code) {
+  if (!airlineColors[code]) {
+    const idx = Object.keys(airlineColors).length % colorPalette.length;
+    airlineColors[code] = colorPalette[idx];
+  }
+  return airlineColors[code];
+}
+let airportsData = [];
 
 function updatePathDisplay() {
   const parts = [];
@@ -20,42 +42,93 @@ function updatePathDisplay() {
     parts.push(item.route.to_name);
   });
   pathEl.textContent = parts.join(' => ');
+  resetBtn.style.display = selectedRoutes.length ? 'inline' : 'none';
+}
+
+function applyFilter() {
+  const airline = filterSelect.value;
+  const counts = [];
+  let maxRoutes = 0;
+  markers.forEach(m => {
+    const count = m.airport.routes.filter(r => !airline || r.airline === airline).length;
+    counts.push(count);
+    if (count > maxRoutes) maxRoutes = count;
+  });
+  if (maxRoutes === 0) maxRoutes = 1;
+
+  markers.forEach((mObj, idx) => {
+    const m = mObj.marker;
+    const count = counts[idx];
+    const show = count > 0;
+    const radius = minRadius + (count / maxRoutes) * (maxRadius - minRadius);
+    m.setRadius(radius);
+
+    if (show) {
+      if (!map.hasLayer(m)) {
+        m.addTo(map);
+      }
+    } else {
+      if (map.hasLayer(m)) {
+        m.routesLines.forEach(l => map.removeLayer(l));
+        m.routesLines = [];
+        map.removeLayer(m);
+      }
+    }
+  });
+
+  selectedRoutes.length = 0;
+  updatePathDisplay();
 }
 
 function toggleRouteSelection(line, route) {
   if (line.selected) {
-    line.setStyle({ color: 'blue' });
+    line.setStyle({ color: line.originalColor });
     line.selected = false;
     const idx = selectedRoutes.findIndex(r => r.route === route);
     if (idx !== -1) selectedRoutes.splice(idx, 1);
   } else {
     line.setStyle({ color: 'red' });
     line.selected = true;
-    selectedRoutes.push({ line, route });
+  selectedRoutes.push({ line, route });
   }
   updatePathDisplay();
 }
 
+filterSelect.addEventListener('change', applyFilter);
+resetAirlineBtn.addEventListener('click', () => {
+  filterSelect.value = '';
+  applyFilter();
+});
+resetBtn.addEventListener('click', () => {
+  markers.forEach(m => {
+    m.marker.routesLines.forEach(l => map.removeLayer(l));
+    m.marker.routesLines = [];
+  });
+  selectedRoutes.length = 0;
+  updatePathDisplay();
+});
+
 fetch('airports.json')
   .then(r => r.json())
   .then(data => {
-    data = data.filter(a => a.routes && a.routes.length);
-    const maxRoutes = Math.max(...data.map(a => a.routes.length));
-    const minRadius = 8; // min radius 8px
-    const maxRadius = 35; // max radius 35px
+    airportsData = data.filter(a => a.routes && a.routes.length);
+    const airlinesSet = new Set();
 
-    data.forEach(a => {
-      const radius = minRadius +
-        (a.routes.length / maxRoutes) * (maxRadius - minRadius);
+    airportsData.forEach(a => {
+      a.routes.forEach(r => airlinesSet.add(r.airline));
 
       const marker = L.circleMarker([a.lat, a.lon], {
-        radius,
+        radius: minRadius,
         color: 'black',
         weight: 1,
         fillColor: '#3388ff',
         fillOpacity: 1,
-      }).addTo(map).bindPopup(a.name);
+      })
+        .addTo(map)
+        .bindTooltip(`${a.name} (${a.code})`);
       marker.routesLines = [];
+      marker.airport = a;
+      markers.push({ marker, airport: a });
       marker.on('click', () => {
         if (marker.routesLines.length) {
           marker.routesLines.forEach(l => {
@@ -66,19 +139,36 @@ fetch('airports.json')
           marker.routesLines = [];
           updatePathDisplay();
         } else if (a.routes) {
+          const airlineFilter = filterSelect.value;
           a.routes.forEach(route => {
-            const line = L.polyline(
-              [route.from, route.to],
-              { color: 'blue', pane: 'routes' }
-            ).addTo(map);
-            line.route = route;
-            line.on('click', e => {
-              toggleRouteSelection(line, route);
-              L.DomEvent.stopPropagation(e);
-            });
+            if (airlineFilter && route.airline !== airlineFilter) {
+              return;
+            }
+          const color = getAirlineColor(route.airline);
+          const line = L.polyline(
+            [route.from, route.to],
+            { color, pane: 'routes' }
+          )
+            .addTo(map)
+            .bindTooltip(`${route.from_name} - ${route.airline} - ${route.to_name}`);
+          line.route = route;
+          line.originalColor = color;
+          line.on('click', e => {
+            toggleRouteSelection(line, route);
+            L.DomEvent.stopPropagation(e);
+          });
             marker.routesLines.push(line);
           });
         }
       });
     });
+
+    Array.from(airlinesSet).sort().forEach(code => {
+      const opt = document.createElement('option');
+      opt.value = code;
+      opt.textContent = code;
+      filterSelect.appendChild(opt);
+    });
+
+    applyFilter();
   });

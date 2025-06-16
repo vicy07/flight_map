@@ -27,6 +27,7 @@ def update_airports():
 
     airports_url = "https://raw.githubusercontent.com/davidmegginson/ourairports-data/master/airports.csv"
     routes_url = "https://raw.githubusercontent.com/jpatokal/openflights/master/data/routes.dat"
+    airlines_url = "https://raw.githubusercontent.com/jpatokal/openflights/master/data/airlines.dat"
 
     # Download airports from OurAirports
     resp = requests.get(airports_url)
@@ -47,11 +48,30 @@ def update_airports():
             continue
         airports[key] = {
             "name": name,
+            "code": key,
             "lat": lat,
             "lon": lon,
             "routes": []
         }
 
+
+    # Build a mapping of airline codes to human readable names
+    resp = requests.get(airlines_url)
+    resp.raise_for_status()
+    airline_names = {}
+    reader = csv.reader(resp.text.splitlines())
+    for row in reader:
+        try:
+            name = row[1]
+            iata = row[3]
+            icao = row[4]
+        except IndexError:
+            continue
+        if iata and iata != "\\N":
+            airline_names[iata] = name
+        if icao and icao != "\\N":
+            airline_names[icao] = name
+            
     # Download routes and attach to airports
     resp = requests.get(routes_url)
     resp.raise_for_status()
@@ -59,7 +79,7 @@ def update_airports():
     route_count = 0
     for row in reader:
         try:
-            airline = row[0]
+            airline_code = row[0]
             source_code = row[2]
             dest_code = row[4]
             if source_code == "\\N" or dest_code == "\\N":
@@ -75,7 +95,7 @@ def update_airports():
             "to": [dest["lat"], dest["lon"]],
             "from_name": source["name"],
             "to_name": dest["name"],
-            "airline": airline
+            "airline": airline_names.get(airline_code, airline_code)
         })
         route_count += 1
 

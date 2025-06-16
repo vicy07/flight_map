@@ -2,12 +2,21 @@
 
 This project provides a minimal example of an interactive airline route map for Europe.
 
-The server uses **FastAPI** to serve the static files from the `public` directory. The front-end relies on Leaflet to display airports and draw routes when an airport marker is clicked. Airport markers are rendered as circles whose radius scales between 8 and 35&nbsp;px depending on how many outgoing routes they have.
+The server uses **FastAPI** to serve the static files from the `public` directory. The front-end relies on Leaflet to display airports and draw routes when an airport marker is clicked. Airport markers are rendered as circles whose radius scales between 8 and 35&nbsp;px depending on how many outgoing routes they have. When an airline filter is active the sizing is recalculated using only the routes for that carrier.
 
-Clicking an airport toggles the display of its routes. Clicking a route highlights
-it for selection; clicking again unselects it. Selected routes are shown in the
-"Path" panel at the top of the page so you can build an ordered itinerary of
-`Airport -> Airline -> Airport`.
+Click an airport to toggle the display of its routes. Hovering over a marker or
+route shows a tooltip with details. Clicking a route highlights it for
+selection; clicking again unselects it. Selected routes are shown in the
+"Path" panel so you can build an ordered itinerary of
+`Airport -> Airline -> Airport`. Use the **Airline** dropdown to show only
+airports served by a particular carrier. A **Reset Airline** button beside the
+dropdown clears the filter. When a filter is active, clicking an
+airport displays only its routes for the chosen airline and marker sizes update
+to reflect only those routes. Once a route is selected, a **Reset Path** button
+appears next to the path display so you can clear the itinerary with a single
+click.
+Routes flown by different airlines use unique colors so overlapping carriers are
+easy to distinguish on the map.
 
 ## Development
 
@@ -48,17 +57,17 @@ docker run --rm flight_map pytest
 
 ## Data
 
-`public/airports.json` contains example data with a small set of airports and routes. When running the container with a volume mounted at `$DATA_DIR`, updated data will be written there. The dataset is fetched from OurAirports (for airport details) and OpenFlights (for routes).
+`public/airports.json` contains example data with a small set of airports and routes. Each airport entry includes its code so the front-end can display tooltips. When running the container with a volume mounted at `$DATA_DIR`, updated data will be written there. The dataset is fetched from OurAirports (for airport details) and OpenFlights (for routes and airline names).
 
 ### Updating data
 
-Run the `/update-airports` endpoint to download the latest airports from OurAirports and route information from OpenFlights:
+Run the `/update-airports` endpoint to download the latest airports from OurAirports and route information from OpenFlights. Airline codes are converted to readable names using `airlines.dat`:
 
 ```bash
 curl -X POST http://localhost:8000/update-airports
 ```
 
-This downloads `airports.csv` from OurAirports and `routes.dat` from OpenFlights, generating `$DATA_DIR/airports.json` with routes embedded for use by the front-end. Airports that have no outgoing routes are excluded from the resulting file.
+This downloads `airports.csv` from OurAirports and `routes.dat` and `airlines.dat` from OpenFlights, generating `$DATA_DIR/airports.json` with airline names embedded for use by the front-end. Airports that have no outgoing routes are excluded from the resulting file.
 
 ## Deployment on Railway
 

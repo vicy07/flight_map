@@ -26,11 +26,15 @@ def test_update_airports(tmp_path, monkeypatch):
         "2,BBB,airport,AirportB,30,40,,EU,BB,BB-1,CityB,yes,,BBB,BBB,,,"
     )
     routes_csv = "AL,1,AAA,1,BBB,2,\\N,0,\n"
+    airlines_dat = "1,Test Airline,\\N,AL,TAL,CALL,Country,Y\n"
+
 
     def fake_get(url):
         if "airports.csv" in url:
             return fake_response(airports_csv)
-        return fake_response(routes_csv)
+        if "routes.dat" in url:
+            return fake_response(routes_csv)
+        return fake_response(airlines_dat)
 
     monkeypatch.chdir(tmp_path)
     data_dir = tmp_path / "data"
@@ -47,5 +51,4 @@ def test_update_airports(tmp_path, monkeypatch):
     data = json.loads((data_dir / "airports.json").read_text())
     assert len(data) == 1
     assert len(data[0]["routes"]) == 1
-    assert data[0]["routes"][0]["airline"] == "AL"
-
+    assert data[0]["routes"][0]["airline"] == "Test Airline"
