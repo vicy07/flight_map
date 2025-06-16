@@ -33,14 +33,18 @@ def test_update_airports(tmp_path, monkeypatch):
         return fake_response(routes_csv)
 
     monkeypatch.chdir(tmp_path)
+    data_dir = tmp_path / "data"
+    data_dir.mkdir()
     (tmp_path / "public").mkdir()
     monkeypatch.setattr(server.requests, "get", fake_get)
+    monkeypatch.setattr(server, "DATA_DIR", data_dir)
+    monkeypatch.setattr(server, "AIRPORTS_PATH", data_dir / "airports.json")
 
     client = TestClient(server.app)
     resp = client.post("/update-airports")
     assert resp.status_code == 200
 
-    data = json.loads(Path("public/airports.json").read_text())
+    data = json.loads((data_dir / "airports.json").read_text())
     assert len(data) == 1
     assert len(data[0]["routes"]) == 1
     assert data[0]["routes"][0]["airline"] == "AL"

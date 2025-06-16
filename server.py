@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 import uvicorn
 import os
 import csv
@@ -7,7 +8,17 @@ import json
 from pathlib import Path
 import requests
 
+DATA_DIR = Path(os.environ.get("DATA_DIR", "public"))
+DATA_DIR.mkdir(parents=True, exist_ok=True)
+AIRPORTS_PATH = DATA_DIR / "airports.json"
+
 app = FastAPI()
+
+
+@app.get("/airports.json")
+def get_airports():
+    """Return the stored airports dataset."""
+    return FileResponse(AIRPORTS_PATH)
 
 
 @app.post("/update-airports")
@@ -71,7 +82,7 @@ def update_airports():
     # Keep only airports that actually have outgoing routes
     airports_with_routes = [a for a in airports.values() if a["routes"]]
 
-    Path("public/airports.json").write_text(
+    AIRPORTS_PATH.write_text(
         json.dumps(airports_with_routes, indent=2)
     )
 
