@@ -4,6 +4,10 @@ This project provides a minimal example of an interactive airline route map for 
 
 The server uses **FastAPI** to serve the static files from the `public` directory. The front-end relies on Leaflet to display airports and draw sample routes when an airport marker is clicked.
 
+Clicking an airport toggles the display of its routes. Clicking a route highlights
+it for selection; clicking again unselects it. Selected routes are logged in the
+browser console for further processing (e.g. calculating average prices).
+
 ## Development
 
 Install dependencies and start the server:
