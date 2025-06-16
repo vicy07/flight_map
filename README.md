@@ -5,8 +5,9 @@ This project provides a minimal example of an interactive airline route map for 
 The server uses **FastAPI** to serve the static files from the `public` directory. The front-end relies on Leaflet to display airports and draw sample routes when an airport marker is clicked.
 
 Clicking an airport toggles the display of its routes. Clicking a route highlights
-it for selection; clicking again unselects it. Selected routes are logged in the
-browser console for further processing (e.g. calculating average prices).
+it for selection; clicking again unselects it. Selected routes are shown in the
+"Path" panel at the top of the page so you can build an ordered itinerary of
+`Airport -> Airline -> Airport`.
 
 ## Development
 
@@ -26,6 +27,14 @@ To build and run the image:
 ```bash
 docker build -t flight_map .
 docker run -p 8000:8000 flight_map
+```
+
+### Running tests
+
+Unit tests verify data updates. Execute them inside the container:
+
+```bash
+docker run --rm flight_map pytest
 ```
 
 ## Data

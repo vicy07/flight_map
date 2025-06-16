@@ -9,9 +9,6 @@ import requests
 
 app = FastAPI()
 
-# Serve static files from the public directory
-app.mount("/", StaticFiles(directory="public", html=True), name="static")
-
 
 @app.post("/update-airports")
 def update_airports():
@@ -47,6 +44,7 @@ def update_airports():
     route_count = 0
     for row in reader:
         try:
+            airline = row[0]
             source_id = row[3]
             dest_id = row[5]
             if source_id == "\\N" or dest_id == "\\N":
@@ -59,7 +57,10 @@ def update_airports():
             continue
         source["routes"].append({
             "from": [source["lat"], source["lon"]],
-            "to": [dest["lat"], dest["lon"]]
+            "to": [dest["lat"], dest["lon"]],
+            "from_name": source["name"],
+            "to_name": dest["name"],
+            "airline": airline
         })
         route_count += 1
 
@@ -67,6 +68,9 @@ def update_airports():
         json.dumps(list(airports.values()), indent=2)
     )
     return {"airports": len(airports), "routes": route_count}
+
+# Serve static files from the public directory (mounted last so API routes take precedence)
+app.mount("/", StaticFiles(directory="public", html=True), name="static")
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=int(os.environ.get("PORT", 8000)))

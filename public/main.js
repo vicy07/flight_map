@@ -5,20 +5,33 @@ L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
   attribution: '© OpenStreetMap contributors'
 }).addTo(map);
 
+const pathEl = document.getElementById('path');
 const selectedRoutes = [];
+
+function updatePathDisplay() {
+  const parts = [];
+  selectedRoutes.forEach((item, idx) => {
+    if (idx === 0) {
+      parts.push(item.route.from_name);
+    }
+    parts.push(item.route.airline);
+    parts.push(item.route.to_name);
+  });
+  pathEl.textContent = parts.join(' => ');
+}
 
 function toggleRouteSelection(line, route) {
   if (line.selected) {
     line.setStyle({ color: 'blue' });
     line.selected = false;
-    const idx = selectedRoutes.findIndex(r => r === route);
+    const idx = selectedRoutes.findIndex(r => r.route === route);
     if (idx !== -1) selectedRoutes.splice(idx, 1);
   } else {
     line.setStyle({ color: 'red' });
     line.selected = true;
-    selectedRoutes.push(route);
+    selectedRoutes.push({ line, route });
   }
-  console.log('Selected routes', selectedRoutes);
+  updatePathDisplay();
 }
 
 fetch('airports.json')
@@ -29,11 +42,17 @@ fetch('airports.json')
       marker.routesLines = [];
       marker.on('click', () => {
         if (marker.routesLines.length) {
-          marker.routesLines.forEach(l => map.removeLayer(l));
+          marker.routesLines.forEach(l => {
+            map.removeLayer(l);
+            const idx = selectedRoutes.findIndex(r => r.line === l);
+            if (idx !== -1) selectedRoutes.splice(idx, 1);
+          });
           marker.routesLines = [];
+          updatePathDisplay();
         } else if (a.routes) {
           a.routes.forEach(route => {
             const line = L.polyline([route.from, route.to], { color: 'blue' }).addTo(map);
+            line.route = route;
             line.on('click', e => {
               toggleRouteSelection(line, route);
               L.DomEvent.stopPropagation(e);
