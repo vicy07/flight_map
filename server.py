@@ -54,6 +54,7 @@ def update_airports():
             "routes": []
         }
 
+
     # Build a mapping of airline codes to human readable names
     resp = requests.get(airlines_url)
     resp.raise_for_status()
@@ -70,7 +71,7 @@ def update_airports():
             airline_names[iata] = name
         if icao and icao != "\\N":
             airline_names[icao] = name
-
+            
     # Download routes and attach to airports
     resp = requests.get(routes_url)
     resp.raise_for_status()

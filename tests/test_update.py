@@ -28,6 +28,7 @@ def test_update_airports(tmp_path, monkeypatch):
     routes_csv = "AL,1,AAA,1,BBB,2,\\N,0,\n"
     airlines_dat = "1,Test Airline,\\N,AL,TAL,CALL,Country,Y\n"
 
+
     def fake_get(url):
         if "airports.csv" in url:
             return fake_response(airports_csv)
@@ -51,4 +52,3 @@ def test_update_airports(tmp_path, monkeypatch):
     assert len(data) == 1
     assert len(data[0]["routes"]) == 1
     assert data[0]["routes"][0]["airline"] == "Test Airline"
-
