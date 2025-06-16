@@ -20,11 +20,15 @@ def fake_response(text):
 
 
 def test_update_airports(tmp_path, monkeypatch):
-    airports_csv = "1,AirportA,City,Country,AA,AAA,10,20\n2,AirportB,City,Country,BB,BBB,30,40"
+    airports_csv = (
+        "id,ident,type,name,latitude_deg,longitude_deg,elevation_ft,continent,iso_country,iso_region,municipality,scheduled_service,icao_code,iata_code,gps_code,local_code,home_link,wikipedia_link,keywords\n"
+        "1,AAA,airport,AirportA,10,20,,EU,AA,AA-1,CityA,yes,,AAA,AAA,,,\n"
+        "2,BBB,airport,AirportB,30,40,,EU,BB,BB-1,CityB,yes,,BBB,BBB,,,"
+    )
     routes_csv = "AL,1,AAA,1,BBB,2,\\N,0,\n"
 
     def fake_get(url):
-        if "airports.dat" in url:
+        if "airports.csv" in url:
             return fake_response(airports_csv)
         return fake_response(routes_csv)
 

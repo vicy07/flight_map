@@ -39,14 +39,14 @@ docker run --rm flight_map pytest
 
 ## Data
 
-`public/airports.json` contains example data with a small set of airports and routes. The dataset can be refreshed from OpenFlights.
+`public/airports.json` contains example data with a small set of airports and routes. The dataset can be refreshed from OurAirports (for airport details) and OpenFlights (for routes).
 
 ### Updating data
 
-Run the `/update-airports` endpoint to download the latest airports and route information from OpenFlights:
+Run the `/update-airports` endpoint to download the latest airports from OurAirports and route information from OpenFlights:
 
 ```bash
 curl -X POST http://localhost:8000/update-airports
 ```
 
-This downloads `airports.dat` and `routes.dat`, generating `public/airports.json` with routes embedded for use by the front-end. Airports that have no outgoing routes are excluded from the resulting file.
+This downloads `airports.csv` from OurAirports and `routes.dat` from OpenFlights, generating `public/airports.json` with routes embedded for use by the front-end. Airports that have no outgoing routes are excluded from the resulting file.

@@ -12,25 +12,29 @@ app = FastAPI()
 
 @app.post("/update-airports")
 def update_airports():
-    """Download airport and route data from OpenFlights and update JSON files."""
+    """Download airport data from OurAirports and route data from OpenFlights."""
 
-    airports_url = "https://raw.githubusercontent.com/jpatokal/openflights/master/data/airports.dat"
+    airports_url = "https://raw.githubusercontent.com/davidmegginson/ourairports-data/master/airports.csv"
     routes_url = "https://raw.githubusercontent.com/jpatokal/openflights/master/data/routes.dat"
 
-    # Download airports
+    # Download airports from OurAirports
     resp = requests.get(airports_url)
     resp.raise_for_status()
-    reader = csv.reader(resp.text.splitlines())
+    reader = csv.DictReader(resp.text.splitlines())
     airports = {}
     for row in reader:
         try:
-            airport_id = row[0]
-            name = row[1]
-            lat = float(row[6])
-            lon = float(row[7])
-        except (ValueError, IndexError):
+            iata = row.get("iata_code")
+            icao = row.get("icao_code")
+            if not iata and not icao:
+                continue
+            key = iata or icao
+            name = row["name"]
+            lat = float(row["latitude_deg"])
+            lon = float(row["longitude_deg"])
+        except (ValueError, KeyError):
             continue
-        airports[airport_id] = {
+        airports[key] = {
             "name": name,
             "lat": lat,
             "lon": lon,
@@ -45,12 +49,12 @@ def update_airports():
     for row in reader:
         try:
             airline = row[0]
-            source_id = row[3]
-            dest_id = row[5]
-            if source_id == "\\N" or dest_id == "\\N":
+            source_code = row[2]
+            dest_code = row[4]
+            if source_code == "\\N" or dest_code == "\\N":
                 continue
-            source = airports.get(source_id)
-            dest = airports.get(dest_id)
+            source = airports.get(source_code)
+            dest = airports.get(dest_code)
             if not source or not dest:
                 continue
         except IndexError:
