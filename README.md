@@ -2,7 +2,7 @@
 
 This project provides a minimal example of an interactive airline route map for Europe.
 
-The server uses **FastAPI** to serve the static files from the `public` directory. The front-end relies on Leaflet to display airports and draw sample routes when an airport marker is clicked.
+The server uses **FastAPI** to serve the static files from the `public` directory. The front-end relies on Leaflet to display airports and draw routes when an airport marker is clicked. Airport markers are rendered as circles scaled between 3 and 15&nbsp;px in diameter depending on how many outgoing routes they have.
 
 Clicking an airport toggles the display of its routes. Clicking a route highlights
 it for selection; clicking again unselects it. Selected routes are shown in the
@@ -49,4 +49,4 @@ Run the `/update-airports` endpoint to download the latest airports and route in
 curl -X POST http://localhost:8000/update-airports
 ```
 
-This downloads `airports.dat` and `routes.dat`, generating `public/airports.json` with routes embedded for use by the front-end.
+This downloads `airports.dat` and `routes.dat`, generating `public/airports.json` with routes embedded for use by the front-end. Airports that have no outgoing routes are excluded from the resulting file.

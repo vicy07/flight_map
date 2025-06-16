@@ -64,10 +64,14 @@ def update_airports():
         })
         route_count += 1
 
+    # Keep only airports that actually have outgoing routes
+    airports_with_routes = [a for a in airports.values() if a["routes"]]
+
     Path("public/airports.json").write_text(
-        json.dumps(list(airports.values()), indent=2)
+        json.dumps(airports_with_routes, indent=2)
     )
-    return {"airports": len(airports), "routes": route_count}
+
+    return {"airports": len(airports_with_routes), "routes": route_count}
 
 # Serve static files from the public directory (mounted last so API routes take precedence)
 app.mount("/", StaticFiles(directory="public", html=True), name="static")

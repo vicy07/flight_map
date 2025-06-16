@@ -37,8 +37,22 @@ function toggleRouteSelection(line, route) {
 fetch('airports.json')
   .then(r => r.json())
   .then(data => {
+    data = data.filter(a => a.routes && a.routes.length);
+    const maxRoutes = Math.max(...data.map(a => a.routes.length));
+    const minRadius = 1.5; // diameter 3
+    const maxRadius = 7.5; // diameter 15
+
     data.forEach(a => {
-      const marker = L.marker([a.lat, a.lon]).addTo(map).bindPopup(a.name);
+      const radius = minRadius +
+        (a.routes.length / maxRoutes) * (maxRadius - minRadius);
+
+      const marker = L.circleMarker([a.lat, a.lon], {
+        radius,
+        color: 'black',
+        weight: 1,
+        fillColor: '#3388ff',
+        fillOpacity: 1,
+      }).addTo(map).bindPopup(a.name);
       marker.routesLines = [];
       marker.on('click', () => {
         if (marker.routesLines.length) {

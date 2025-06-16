@@ -37,7 +37,7 @@ def test_update_airports(tmp_path, monkeypatch):
     assert resp.status_code == 200
 
     data = json.loads(Path("public/airports.json").read_text())
-    assert len(data) == 2
+    assert len(data) == 1
     assert len(data[0]["routes"]) == 1
     assert data[0]["routes"][0]["airline"] == "AL"
 
