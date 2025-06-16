@@ -106,7 +106,11 @@ fetch('airports.json')
           marker.routesLines = [];
           updatePathDisplay();
         } else if (a.routes) {
+          const airlineFilter = filterSelect.value;
           a.routes.forEach(route => {
+            if (airlineFilter && route.airline !== airlineFilter) {
+              return;
+            }
             const line = L.polyline(
               [route.from, route.to],
               { color: 'blue', pane: 'routes' }

@@ -9,8 +9,9 @@ route shows a tooltip with details. Clicking a route highlights it for
 selection; clicking again unselects it. Selected routes are shown in the
 "Path" panel so you can build an ordered itinerary of
 `Airport -> Airline -> Airport`. Use the **Airline** dropdown to show only
-airports served by a particular carrier. The **Reset Path** button clears all
-selected routes and hides any displayed lines.
+airports served by a particular carrier. When a filter is active, clicking an
+airport displays only its routes for the chosen airline. The **Reset Path**
+button clears all selected routes and hides any displayed lines.
 
 ## Development
 
