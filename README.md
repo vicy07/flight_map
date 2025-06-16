@@ -2,7 +2,7 @@
 
 This project provides a minimal example of an interactive airline route map for Europe.
 
-The server uses **FastAPI** to serve the static files from the `public` directory. The front-end relies on Leaflet to display airports and draw routes when an airport marker is clicked. Airport markers are rendered as circles whose radius scales between 8 and 35&nbsp;px depending on how many outgoing routes they have.
+The server uses **FastAPI** to serve the static files from the `public` directory. The front-end relies on Leaflet to display airports and draw routes when an airport marker is clicked. Airport markers are rendered as circles whose radius scales between 8 and 35&nbsp;px depending on how many outgoing routes they have. When an airline filter is active the sizing is recalculated using only the routes for that carrier.
 
 Click an airport to toggle the display of its routes. Hovering over a marker or
 route shows a tooltip with details. Clicking a route highlights it for
@@ -10,7 +10,8 @@ selection; clicking again unselects it. Selected routes are shown in the
 "Path" panel so you can build an ordered itinerary of
 `Airport -> Airline -> Airport`. Use the **Airline** dropdown to show only
 airports served by a particular carrier. When a filter is active, clicking an
-airport displays only its routes for the chosen airline. The **Reset Path**
+airport displays only its routes for the chosen airline and marker sizes update
+to reflect only those routes. The **Reset Path**
 button clears all selected routes and hides any displayed lines.
 
 ## Development

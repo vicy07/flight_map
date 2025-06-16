@@ -12,6 +12,9 @@ const selectedRoutes = [];
 const routesPane = map.createPane('routes');
 routesPane.style.zIndex = 200;
 const markers = [];
+const minRadius = 8;
+const maxRadius = 35;
+let airportsData = [];
 
 function updatePathDisplay() {
   const parts = [];
@@ -27,20 +30,35 @@ function updatePathDisplay() {
 
 function applyFilter() {
   const airline = filterSelect.value;
+  const counts = [];
+  let maxRoutes = 0;
   markers.forEach(m => {
-    const hasAirline = !airline || m.airport.routes.some(r => r.airline === airline);
-    if (hasAirline) {
-      if (!map.hasLayer(m.marker)) {
-        m.marker.addTo(map);
+    const count = m.airport.routes.filter(r => !airline || r.airline === airline).length;
+    counts.push(count);
+    if (count > maxRoutes) maxRoutes = count;
+  });
+  if (maxRoutes === 0) maxRoutes = 1;
+
+  markers.forEach((mObj, idx) => {
+    const m = mObj.marker;
+    const count = counts[idx];
+    const show = count > 0;
+    const radius = minRadius + (count / maxRoutes) * (maxRadius - minRadius);
+    m.setRadius(radius);
+
+    if (show) {
+      if (!map.hasLayer(m)) {
+        m.addTo(map);
       }
     } else {
-      if (map.hasLayer(m.marker)) {
-        m.marker.routesLines.forEach(l => map.removeLayer(l));
-        m.marker.routesLines = [];
-        map.removeLayer(m.marker);
+      if (map.hasLayer(m)) {
+        m.routesLines.forEach(l => map.removeLayer(l));
+        m.routesLines = [];
+        map.removeLayer(m);
       }
     }
   });
+
   selectedRoutes.length = 0;
   updatePathDisplay();
 }
@@ -72,20 +90,14 @@ resetBtn.addEventListener('click', () => {
 fetch('airports.json')
   .then(r => r.json())
   .then(data => {
-    data = data.filter(a => a.routes && a.routes.length);
-    const maxRoutes = Math.max(...data.map(a => a.routes.length));
-    const minRadius = 8; // min radius 8px
-    const maxRadius = 35; // max radius 35px
-
+    airportsData = data.filter(a => a.routes && a.routes.length);
     const airlinesSet = new Set();
 
-    data.forEach(a => {
+    airportsData.forEach(a => {
       a.routes.forEach(r => airlinesSet.add(r.airline));
-      const radius = minRadius +
-        (a.routes.length / maxRoutes) * (maxRadius - minRadius);
 
       const marker = L.circleMarker([a.lat, a.lon], {
-        radius,
+        radius: minRadius,
         color: 'black',
         weight: 1,
         fillColor: '#3388ff',
