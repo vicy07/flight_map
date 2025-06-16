@@ -1,0 +1,39 @@
+[
+  {
+    "name": "London Heathrow",
+    "code": "LHR",
+    "lat": 51.4706,
+    "lon": -0.4619,
+    "routes": [
+      {
+        "from": [51.4706, -0.4619],
+        "to": [48.8566, 2.3522],
+        "from_name": "London Heathrow",
+        "to_name": "Paris Charles de Gaulle",
+        "airline": "British Airways"
+      },
+      {
+        "from": [51.4706, -0.4619],
+        "to": [52.5200, 13.4050],
+        "from_name": "London Heathrow",
+        "to_name": "Berlin",
+        "airline": "British Airways"
+      }
+    ]
+  },
+  {
+    "name": "Paris Charles de Gaulle",
+    "code": "CDG",
+    "lat": 49.0097,
+    "lon": 2.5479,
+    "routes": [
+      {
+        "from": [49.0097, 2.5479],
+        "to": [41.9028, 12.4964],
+        "from_name": "Paris Charles de Gaulle",
+        "to_name": "Rome",
+        "airline": "Air France"
+      }
+    ]
+  }
+]
