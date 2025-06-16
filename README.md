@@ -2,7 +2,7 @@
 
 This project provides a minimal example of an interactive airline route map for Europe.
 
-The server uses **FastAPI** to serve the static files from the `public` directory. The front-end relies on Leaflet to display airports and draw routes when an airport marker is clicked. Airport markers are rendered as circles scaled between 3 and 15&nbsp;px in diameter depending on how many outgoing routes they have.
+The server uses **FastAPI** to serve the static files from the `public` directory. The front-end relies on Leaflet to display airports and draw routes when an airport marker is clicked. Airport markers are rendered as circles scaled between 20 and 100&nbsp;px in diameter depending on how many outgoing routes they have.
 
 Clicking an airport toggles the display of its routes. Clicking a route highlights
 it for selection; clicking again unselects it. Selected routes are shown in the

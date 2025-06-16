@@ -7,6 +7,8 @@ L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
 
 const pathEl = document.getElementById('path');
 const selectedRoutes = [];
+const routesPane = map.createPane('routes');
+routesPane.style.zIndex = 200;
 
 function updatePathDisplay() {
   const parts = [];
@@ -39,8 +41,8 @@ fetch('airports.json')
   .then(data => {
     data = data.filter(a => a.routes && a.routes.length);
     const maxRoutes = Math.max(...data.map(a => a.routes.length));
-    const minRadius = 1.5; // diameter 3
-    const maxRadius = 7.5; // diameter 15
+    const minRadius = 10; // diameter 20
+    const maxRadius = 50; // diameter 100
 
     data.forEach(a => {
       const radius = minRadius +
@@ -65,7 +67,10 @@ fetch('airports.json')
           updatePathDisplay();
         } else if (a.routes) {
           a.routes.forEach(route => {
-            const line = L.polyline([route.from, route.to], { color: 'blue' }).addTo(map);
+            const line = L.polyline(
+              [route.from, route.to],
+              { color: 'blue', pane: 'routes' }
+            ).addTo(map);
             line.route = route;
             line.on('click', e => {
               toggleRouteSelection(line, route);
