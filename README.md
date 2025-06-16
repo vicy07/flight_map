@@ -12,8 +12,9 @@ selection; clicking again unselects it. Selected routes are shown in the
 airports served by a particular carrier. A **Reset Airline** button beside the
 dropdown clears the filter. When a filter is active, clicking an
 airport displays only its routes for the chosen airline and marker sizes update
-to reflect only those routes. The **Reset Path** button appears once a route is
-selected and clears all selections when pressed.
+to reflect only those routes. Once a route is selected, a **Reset Path** button
+appears next to the path display so you can clear the itinerary with a single
+click.
 Routes flown by different airlines use unique colors so overlapping carriers are
 easy to distinguish on the map.
 
