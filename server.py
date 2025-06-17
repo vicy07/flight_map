@@ -294,7 +294,7 @@ def update_flights():
         prefix, number = parse_callsign(af.get("callsign", ""))
         src = nearest_airport(*(af.get("origin_coord") or (None, None)))
         dest = nearest_airport(*(af.get("last_coord") or (None, None)))
-        if not src or not dest:
+        if not src or not dest or src["code"] == dest["code"]:
             continue
         key = (prefix, number, src["code"], dest["code"])
         route = routes_by_key.get(key)
