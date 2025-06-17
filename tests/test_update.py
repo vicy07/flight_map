@@ -30,17 +30,12 @@ def test_update_airports(tmp_path, monkeypatch):
         "1,AA,Country AA,EU,,\n"
         "2,BB,Country BB,EU,,"
     )
-    routes_csv = "AL,1,AAA,1,BBB,2,\\N,0,\n"
-    airlines_dat = "1,Test Airline,\\N,AL,TAL,CALL,Country,Y\n"
-
     def fake_get(url):
         if "airports.csv" in url:
             return fake_response(airports_csv)
         if "countries.csv" in url:
             return fake_response(countries_csv)
-        if "routes.dat" in url:
-            return fake_response(routes_csv)
-        return fake_response(airlines_dat)
+        raise AssertionError(url)
 
     monkeypatch.chdir(tmp_path)
     data_dir = tmp_path / "data"
@@ -49,6 +44,17 @@ def test_update_airports(tmp_path, monkeypatch):
     monkeypatch.setattr(server.requests, "get", fake_get)
     monkeypatch.setattr(server, "DATA_DIR", data_dir)
     monkeypatch.setattr(server, "AIRPORTS_PATH", data_dir / "airports.json")
+    monkeypatch.setattr(server, "ROUTES_DB_PATH", data_dir / "routes_dynamic.json")
+
+    flights = [
+        {
+            "icao24": "abc",
+            "callsign": "AL123",
+            "origin_coord": [10, 20],
+            "last_coord": [30, 40],
+        }
+    ]
+    (data_dir / "routes_dynamic.json").write_text(json.dumps(flights))
 
     client = TestClient(server.app)
     resp = client.post("/update-airports")
@@ -57,6 +63,6 @@ def test_update_airports(tmp_path, monkeypatch):
     data = json.loads((data_dir / "airports.json").read_text())
     assert len(data) == 1
     assert len(data[0]["routes"]) == 1
-    assert data[0]["routes"][0]["airline"] == "Test Airline"
+    assert data[0]["routes"][0]["airline"] == "AL123"
     assert data[0]["country_code"] == "AA"
     assert data[0]["country"] == "Country AA"

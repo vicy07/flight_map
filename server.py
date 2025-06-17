@@ -7,6 +7,7 @@ import csv
 import json
 from pathlib import Path
 from datetime import datetime
+from math import radians, cos, sin, asin, sqrt
 import requests
 
 DATA_DIR = Path(os.environ.get("DATA_DIR", "public"))
@@ -26,12 +27,10 @@ def get_airports():
 
 @app.post("/update-airports")
 def update_airports():
-    """Download airport data from OurAirports and route data from OpenFlights."""
+    """Download airport data from OurAirports and build routes from collected flights."""
 
     airports_url = "https://raw.githubusercontent.com/davidmegginson/ourairports-data/master/airports.csv"
     countries_url = "https://raw.githubusercontent.com/davidmegginson/ourairports-data/master/countries.csv"
-    routes_url = "https://raw.githubusercontent.com/jpatokal/openflights/master/data/routes.dat"
-    airlines_url = "https://raw.githubusercontent.com/jpatokal/openflights/master/data/airlines.dat"
 
     # Download airports from OurAirports
     resp = requests.get(airports_url)
@@ -67,47 +66,44 @@ def update_airports():
             "routes": []
         }
 
-    # Build a mapping of airline codes to human readable names
-    resp = requests.get(airlines_url)
-    resp.raise_for_status()
-    airline_names = {}
-    reader = csv.reader(resp.text.splitlines())
-    for row in reader:
+    # Load collected flight data and map to nearest airports
+    flights = []
+    if ROUTES_DB_PATH.exists():
         try:
-            name = row[1]
-            iata = row[3]
-            icao = row[4]
-        except IndexError:
-            continue
-        if iata and iata != "\\N":
-            airline_names[iata] = name
-        if icao and icao != "\\N":
-            airline_names[icao] = name
+            flights = json.loads(ROUTES_DB_PATH.read_text() or "[]")
+        except json.JSONDecodeError:
+            flights = []
 
-    # Download routes and attach to airports
-    resp = requests.get(routes_url)
-    resp.raise_for_status()
-    reader = csv.reader(resp.text.splitlines())
+    def haversine(lat1, lon1, lat2, lon2):
+        R = 6371.0
+        dlat = radians(lat2 - lat1)
+        dlon = radians(lon2 - lon1)
+        a = sin(dlat / 2) ** 2 + cos(radians(lat1)) * cos(radians(lat2)) * sin(dlon / 2) ** 2
+        c = 2 * asin(sqrt(a))
+        return R * c
+
+    def nearest_airport(lat, lon):
+        best = None
+        best_d = float("inf")
+        for ap in airports.values():
+            d = haversine(lat, lon, ap["lat"], ap["lon"])
+            if d < best_d:
+                best = ap
+                best_d = d
+        return best if best_d <= 30 else None
+
     route_count = 0
-    for row in reader:
-        try:
-            airline_code = row[0]
-            source_code = row[2]
-            dest_code = row[4]
-            if source_code == "\\N" or dest_code == "\\N":
-                continue
-            source = airports.get(source_code)
-            dest = airports.get(dest_code)
-            if not source or not dest:
-                continue
-        except IndexError:
+    for fl in flights:
+        src = nearest_airport(*fl.get("origin_coord", (None, None)))
+        dest = nearest_airport(*fl.get("last_coord", (None, None)))
+        if not src or not dest:
             continue
-        source["routes"].append({
-            "from": [source["lat"], source["lon"]],
+        src["routes"].append({
+            "from": [src["lat"], src["lon"]],
             "to": [dest["lat"], dest["lon"]],
-            "from_name": source["name"],
+            "from_name": src["name"],
             "to_name": dest["name"],
-            "airline": airline_names.get(airline_code, airline_code)
+            "airline": fl.get("callsign") or fl.get("icao24")
         })
         route_count += 1
 
