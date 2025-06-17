@@ -101,6 +101,12 @@ The current dataset can be downloaded with:
 curl http://localhost:8000/routes-db
 ```
 
+For a high level summary of the collected data you can query `/routes-info`:
+
+```bash
+curl http://localhost:8000/routes-info
+```
+
 ## Deployment on Railway
 
 Create a project from this repository and configure a persistent volume mounted at `/data`. Set the `DATA_DIR` environment variable to `/data` so updated airport data persists between deployments.

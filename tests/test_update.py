@@ -49,6 +49,7 @@ def test_update_airports(tmp_path, monkeypatch):
     monkeypatch.setattr(server, "DATA_DIR", data_dir)
     monkeypatch.setattr(server, "AIRPORTS_PATH", data_dir / "airports.json")
     monkeypatch.setattr(server, "ROUTES_DB_PATH", data_dir / "routes_dynamic.json")
+    monkeypatch.setattr(server, "STATS_PATH", data_dir / "routes_stats.json")
 
     routes = [
         {
@@ -85,3 +86,10 @@ def test_update_airports(tmp_path, monkeypatch):
     assert data[0]["routes"][0]["flight_number"] == "123"
     assert data[0]["country_code"] == "AA"
     assert data[0]["country"] == "Country AA"
+
+    stats = json.loads((data_dir / "routes_stats.json").read_text())
+    assert stats["airports_active"] == 1
+    assert stats["airports_total"] == 2
+
+    info = TestClient(server.app).get("/routes-info").json()
+    assert info["active_airports"] == 1

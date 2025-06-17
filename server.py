@@ -160,6 +160,17 @@ def update_airports():
         json.dumps(airports_with_routes, indent=2)
     )
 
+    # Update stats file with airport counts
+    stats = {}
+    if STATS_PATH.exists():
+        try:
+            stats = json.loads(STATS_PATH.read_text() or "{}")
+        except json.JSONDecodeError:
+            stats = {}
+    stats["airports_active"] = len(airports_with_routes)
+    stats["airports_total"] = len(airports)
+    STATS_PATH.write_text(json.dumps(stats, indent=2))
+
     return {"airports": len(airports_with_routes), "routes": route_count}
 
 
@@ -268,7 +279,19 @@ def update_flights():
 
     ACTIVE_FLIGHTS_PATH.write_text(json.dumps(active, indent=2))
     ROUTES_DB_PATH.write_text(json.dumps(routes, indent=2))
-    STATS_PATH.write_text(json.dumps({"routes": len(routes), "last_run": now}))
+
+    stats = {}
+    if STATS_PATH.exists():
+        try:
+            stats = json.loads(STATS_PATH.read_text() or "{}")
+        except json.JSONDecodeError:
+            stats = {}
+    stats.update({
+        "routes": len(routes),
+        "last_run": now,
+        "active_planes": len(active),
+    })
+    STATS_PATH.write_text(json.dumps(stats, indent=2))
     return {"routes": len(routes), "active": len(active), "last_run": now}
 
 
@@ -284,6 +307,54 @@ def get_routes_stats():
     if STATS_PATH.exists():
         return json.loads(STATS_PATH.read_text())
     return {"routes": 0, "last_run": None}
+
+
+@app.get("/routes-info")
+def get_routes_info():
+    """Return summary statistics about airports and routes."""
+    stats = {}
+    if STATS_PATH.exists():
+        try:
+            stats = json.loads(STATS_PATH.read_text() or "{}")
+        except json.JSONDecodeError:
+            stats = {}
+
+    routes = []
+    if ROUTES_DB_PATH.exists():
+        try:
+            routes = json.loads(ROUTES_DB_PATH.read_text() or "[]")
+        except json.JSONDecodeError:
+            routes = []
+
+    airports_list = []
+    if AIRPORTS_PATH.exists():
+        try:
+            airports_list = json.loads(AIRPORTS_PATH.read_text() or "[]")
+        except json.JSONDecodeError:
+            airports_list = []
+
+    now = datetime.utcnow()
+    recovered_hour = 0
+    recovered_day = 0
+    for rt in routes:
+        try:
+            last = datetime.fromisoformat(rt.get("last_seen", "").replace("Z", ""))
+        except Exception:
+            continue
+        if now - last <= timedelta(hours=1):
+            recovered_hour += 1
+        if now - last <= timedelta(hours=24):
+            recovered_day += 1
+
+    return {
+        "active_airports": len(airports_list),
+        "total_airports": stats.get("airports_total", len(airports_list)),
+        "routes": len(routes),
+        "last_update": stats.get("last_run"),
+        "active_planes": stats.get("active_planes", 0),
+        "recovered_last_hour": recovered_hour,
+        "recovered_last_24h": recovered_day,
+    }
 
 # Serve static files from the public directory (mounted last so API routes take precedence)
 app.mount("/", StaticFiles(directory="public", html=True), name="static")
