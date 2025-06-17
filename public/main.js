@@ -9,6 +9,8 @@ const pathEl = document.getElementById('path');
 const filterSelect = document.getElementById('airline-filter');
 const resetBtn = document.getElementById('reset');
 const resetAirlineBtn = document.getElementById('reset-airline');
+const countrySelect = document.getElementById('country-filter');
+const resetCountryBtn = document.getElementById('reset-country');
 const selectedRoutes = [];
 const routesPane = map.createPane('routes');
 routesPane.style.zIndex = 200;
@@ -47,10 +49,13 @@ function updatePathDisplay() {
 
 function applyFilter() {
   const airline = filterSelect.value;
+  const country = countrySelect.value;
   const counts = [];
   let maxRoutes = 0;
   markers.forEach(m => {
-    const count = m.airport.routes.filter(r => !airline || r.airline === airline).length;
+    const inCountry = !country || m.airport.country_code === country;
+    const count = inCountry ?
+      m.airport.routes.filter(r => !airline || r.airline === airline).length : 0;
     counts.push(count);
     if (count > maxRoutes) maxRoutes = count;
   });
@@ -99,6 +104,11 @@ resetAirlineBtn.addEventListener('click', () => {
   filterSelect.value = '';
   applyFilter();
 });
+countrySelect.addEventListener('change', applyFilter);
+resetCountryBtn.addEventListener('click', () => {
+  countrySelect.value = '';
+  applyFilter();
+});
 resetBtn.addEventListener('click', () => {
   markers.forEach(m => {
     m.marker.routesLines.forEach(l => map.removeLayer(l));
@@ -113,9 +123,11 @@ fetch('airports.json')
   .then(data => {
     airportsData = data.filter(a => a.routes && a.routes.length);
     const airlinesSet = new Set();
+    const countriesMap = new Map();
 
     airportsData.forEach(a => {
       a.routes.forEach(r => airlinesSet.add(r.airline));
+      countriesMap.set(a.country_code, a.country);
 
       const marker = L.circleMarker([a.lat, a.lon], {
         radius: minRadius,
@@ -169,6 +181,15 @@ fetch('airports.json')
       opt.textContent = code;
       filterSelect.appendChild(opt);
     });
+
+    Array.from(countriesMap.entries())
+      .sort((a, b) => a[1].localeCompare(b[1]))
+      .forEach(([code, name]) => {
+        const opt = document.createElement('option');
+        opt.value = code;
+        opt.textContent = name;
+        countrySelect.appendChild(opt);
+      });
 
     applyFilter();
   });

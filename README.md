@@ -10,9 +10,10 @@ selection; clicking again unselects it. Selected routes are shown in the
 "Path" panel so you can build an ordered itinerary of
 `Airport -> Airline -> Airport`. Use the **Airline** dropdown to show only
 airports served by a particular carrier. A **Reset Airline** button beside the
-dropdown clears the filter. When a filter is active, clicking an
-airport displays only its routes for the chosen airline and marker sizes update
-to reflect only those routes. Once a route is selected, a **Reset Path** button
+dropdown clears that filter. You can also filter airports by **Country** using
+the new country dropdown and **Clear Country** button. When a filter is active,
+clicking an airport displays only its routes for the chosen airline and marker
+sizes update to reflect only those routes. Once a route is selected, a **Reset Path** button
 appears next to the path display so you can clear the itinerary with a single
 click.
 Routes flown by different airlines use unique colors so overlapping carriers are
@@ -57,17 +58,17 @@ docker run --rm flight_map pytest
 
 ## Data
 
-`public/airports.json` contains example data with a small set of airports and routes. Each airport entry includes its code so the front-end can display tooltips. When running the container with a volume mounted at `$DATA_DIR`, updated data will be written there. The dataset is fetched from OurAirports (for airport details) and OpenFlights (for routes and airline names).
+`public/airports.json` contains example data with a small set of airports and routes. Each airport entry lists its code, ISO country and human readable country name so the front-end can provide tooltips and filtering. When running the container with a volume mounted at `$DATA_DIR`, updated data will be written there. The dataset is fetched from OurAirports (for airport and country details) and OpenFlights (for routes and airline names).
 
 ### Updating data
 
-Run the `/update-airports` endpoint to download the latest airports from OurAirports and route information from OpenFlights. Airline codes are converted to readable names using `airlines.dat`:
+Run the `/update-airports` endpoint to download the latest airports from OurAirports and route information from OpenFlights. `countries.csv` resolves ISO codes to names, and airline codes are converted to readable names using `airlines.dat`:
 
 ```bash
 curl -X POST http://localhost:8000/update-airports
 ```
 
-This downloads `airports.csv` from OurAirports and `routes.dat` and `airlines.dat` from OpenFlights, generating `$DATA_DIR/airports.json` with airline names embedded for use by the front-end. Airports that have no outgoing routes are excluded from the resulting file.
+This downloads `airports.csv` and `countries.csv` from OurAirports plus `routes.dat` and `airlines.dat` from OpenFlights, generating `$DATA_DIR/airports.json` with airline and country names embedded for use by the front-end. Airports that have no outgoing routes are excluded from the resulting file.
 
 ## Deployment on Railway
 

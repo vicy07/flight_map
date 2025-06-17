@@ -25,13 +25,19 @@ def test_update_airports(tmp_path, monkeypatch):
         "1,AAA,airport,AirportA,10,20,,EU,AA,AA-1,CityA,yes,,AAA,AAA,,,\n"
         "2,BBB,airport,AirportB,30,40,,EU,BB,BB-1,CityB,yes,,BBB,BBB,,,"
     )
+    countries_csv = (
+        "id,code,name,continent,wikipedia_link,keywords\n"
+        "1,AA,Country AA,EU,,\n"
+        "2,BB,Country BB,EU,,"
+    )
     routes_csv = "AL,1,AAA,1,BBB,2,\\N,0,\n"
     airlines_dat = "1,Test Airline,\\N,AL,TAL,CALL,Country,Y\n"
-
 
     def fake_get(url):
         if "airports.csv" in url:
             return fake_response(airports_csv)
+        if "countries.csv" in url:
+            return fake_response(countries_csv)
         if "routes.dat" in url:
             return fake_response(routes_csv)
         return fake_response(airlines_dat)
@@ -52,3 +58,5 @@ def test_update_airports(tmp_path, monkeypatch):
     assert len(data) == 1
     assert len(data[0]["routes"]) == 1
     assert data[0]["routes"][0]["airline"] == "Test Airline"
+    assert data[0]["country_code"] == "AA"
+    assert data[0]["country"] == "Country AA"

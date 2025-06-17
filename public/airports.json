@@ -4,6 +4,8 @@
     "code": "LHR",
     "lat": 51.4706,
     "lon": -0.4619,
+    "country_code": "GB",
+    "country": "United Kingdom",
     "routes": [
       {
         "from": [51.4706, -0.4619],
@@ -26,6 +28,8 @@
     "code": "CDG",
     "lat": 49.0097,
     "lon": 2.5479,
+    "country_code": "FR",
+    "country": "France",
     "routes": [
       {
         "from": [49.0097, 2.5479],

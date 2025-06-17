@@ -26,6 +26,7 @@ def update_airports():
     """Download airport data from OurAirports and route data from OpenFlights."""
 
     airports_url = "https://raw.githubusercontent.com/davidmegginson/ourairports-data/master/airports.csv"
+    countries_url = "https://raw.githubusercontent.com/davidmegginson/ourairports-data/master/countries.csv"
     routes_url = "https://raw.githubusercontent.com/jpatokal/openflights/master/data/routes.dat"
     airlines_url = "https://raw.githubusercontent.com/jpatokal/openflights/master/data/airlines.dat"
 
@@ -34,6 +35,11 @@ def update_airports():
     resp.raise_for_status()
     reader = csv.DictReader(resp.text.splitlines())
     airports = {}
+
+    # Download countries to resolve ISO codes to readable names
+    resp_countries = requests.get(countries_url)
+    resp_countries.raise_for_status()
+    country_map = {r["code"]: r["name"] for r in csv.DictReader(resp_countries.text.splitlines())}
     for row in reader:
         try:
             iata = row.get("iata_code")
@@ -46,14 +52,17 @@ def update_airports():
             lon = float(row["longitude_deg"])
         except (ValueError, KeyError):
             continue
+        country_code = row.get("iso_country", "")
         airports[key] = {
             "name": name,
             "code": key,
             "lat": lat,
             "lon": lon,
+
+            "country_code": country_code,
+            "country": country_map.get(country_code, country_code),
             "routes": []
         }
-
 
     # Build a mapping of airline codes to human readable names
     resp = requests.get(airlines_url)
@@ -71,7 +80,7 @@ def update_airports():
             airline_names[iata] = name
         if icao and icao != "\\N":
             airline_names[icao] = name
-            
+
     # Download routes and attach to airports
     resp = requests.get(routes_url)
     resp.raise_for_status()
