@@ -68,6 +68,9 @@ Run the `/update-airports` endpoint to download the latest airports from OurAirp
 curl -X POST http://localhost:8000/update-airports
 ```
 
+If `$DATA_DIR/airports.json` does not exist the map will fail to load; invoking
+this endpoint creates the file so the front-end can function.
+
 This downloads `airports.csv` and `countries.csv` from OurAirports and combines them with the data in `routes_dynamic.json`, generating `$DATA_DIR/airports.json` with country names embedded for use by the front-end. Airports that have no outgoing routes are excluded from the resulting file.
 
 ### Updating live flight data

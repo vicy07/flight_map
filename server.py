@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 import uvicorn
@@ -64,8 +64,10 @@ def nearest_airport(lat, lon, airports):
 
 @app.get("/airports.json")
 def get_airports():
-    """Return the stored airports dataset."""
-    return FileResponse(AIRPORTS_PATH)
+    """Return the stored airports dataset if available."""
+    if AIRPORTS_PATH.exists():
+        return FileResponse(AIRPORTS_PATH)
+    raise HTTPException(status_code=404, detail="airports data not found")
 
 
 @app.post("/update-airports")

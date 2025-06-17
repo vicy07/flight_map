@@ -93,3 +93,17 @@ def test_update_airports(tmp_path, monkeypatch):
 
     info = TestClient(server.app).get("/routes-info").json()
     assert info["active_airports"] == 1
+
+
+def test_get_airports_missing(tmp_path, monkeypatch):
+    """/airports.json should return 404 when no data file exists."""
+    monkeypatch.chdir(tmp_path)
+    data_dir = tmp_path / "data"
+    data_dir.mkdir()
+    (tmp_path / "public").mkdir()
+    monkeypatch.setattr(server, "DATA_DIR", data_dir)
+    monkeypatch.setattr(server, "AIRPORTS_PATH", data_dir / "airports.json")
+
+    client = TestClient(server.app)
+    resp = client.get("/airports.json")
+    assert resp.status_code == 404
