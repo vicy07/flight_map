@@ -127,3 +127,19 @@ def test_update_flights_missing_destination(tmp_path, monkeypatch):
     assert info["routes"] == 1
     assert info["active_planes"] == 0
 
+
+def test_get_active_flights(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    data_dir = tmp_path / "data"
+    data_dir.mkdir()
+    (tmp_path / "public").mkdir()
+    monkeypatch.setattr(server, "DATA_DIR", data_dir)
+    monkeypatch.setattr(server, "ACTIVE_FLIGHTS_PATH", data_dir / "active_flights.json")
+    active = {"abc": {"callsign": "AL123", "last_coord": [10, 20]}}
+    (data_dir / "active_flights.json").write_text(json.dumps(active))
+
+    client = TestClient(server.app)
+    resp = client.get("/active-flights")
+    assert resp.status_code == 200
+    assert resp.json() == active
+

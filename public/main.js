@@ -15,6 +15,7 @@ const selectedRoutes = [];
 const routesPane = map.createPane('routes');
 routesPane.style.zIndex = 200;
 const markers = [];
+const activeFlightMarkers = [];
 const minRadius = 8;
 const maxRadius = 35;
 const airlineColors = {};
@@ -24,6 +25,12 @@ const colorPalette = [
   '#9A6324', '#fffac8', '#800000', '#aaffc3', '#808000', '#ffd8b1',
   '#000075', '#808080'
 ];
+
+const planeIcon = L.icon({
+  iconUrl: 'plane.svg',
+  iconSize: [8, 8],
+  iconAnchor: [4, 4],
+});
 
 function getAirlineColor(code) {
   if (!airlineColors[code]) {
@@ -99,6 +106,39 @@ function toggleRouteSelection(line, route) {
   updatePathDisplay();
 }
 
+function loadActiveFlights() {
+  fetch('active-flights')
+    .then(r => r.json())
+    .then(data => {
+      activeFlightMarkers.forEach(m => map.removeLayer(m));
+      activeFlightMarkers.length = 0;
+      Object.values(data || {}).forEach(f => {
+        if (!Array.isArray(f.last_coord)) return;
+        const [lat, lon] = f.last_coord;
+        if (lat == null || lon == null) return;
+        const code = (f.callsign || '').trim() || `${f.airline || ''}${f.flight_number || ''}`;
+        let duration = '';
+        if (f.first_seen && f.last_updated) {
+          const first = Date.parse(f.first_seen);
+          const last = Date.parse(f.last_updated);
+          if (!isNaN(first) && !isNaN(last) && last >= first) {
+            const mins = Math.floor((last - first) / 60000);
+            const h = Math.floor(mins / 60);
+            const m = mins % 60;
+            duration = h ? `${h}h ${m}m` : `${m}m`;
+          }
+        }
+        const info = [code, f.airline, duration, f.origin_name || f.origin]
+          .filter(Boolean)
+          .join(', ');
+        const marker = L.marker([lat, lon], { icon: planeIcon })
+          .addTo(map)
+          .bindTooltip(info);
+        activeFlightMarkers.push(marker);
+      });
+    });
+}
+
 filterSelect.addEventListener('change', applyFilter);
 resetAirlineBtn.addEventListener('click', () => {
   filterSelect.value = '';
@@ -119,8 +159,15 @@ resetBtn.addEventListener('click', () => {
 });
 
 fetch('airports.json')
-  .then(r => r.json())
+  .then(r => {
+    if (!r.ok) {
+      console.error('Failed to load airports data:', r.status);
+      return [];
+    }
+    return r.json();
+  })
   .then(data => {
+    if (!Array.isArray(data)) data = [];
     airportsData = data.filter(a => a.routes && a.routes.length);
     const airlinesSet = new Set();
     const countriesMap = new Map();
@@ -192,4 +239,5 @@ fetch('airports.json')
       });
 
     applyFilter();
+    loadActiveFlights();
   });

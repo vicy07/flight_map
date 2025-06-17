@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 import uvicorn
@@ -64,8 +64,10 @@ def nearest_airport(lat, lon, airports):
 
 @app.get("/airports.json")
 def get_airports():
-    """Return the stored airports dataset."""
-    return FileResponse(AIRPORTS_PATH)
+    """Return the stored airports dataset if available."""
+    if AIRPORTS_PATH.exists():
+        return FileResponse(AIRPORTS_PATH)
+    raise HTTPException(status_code=404, detail="airports data not found")
 
 
 @app.post("/update-airports")
@@ -221,14 +223,22 @@ def update_flights():
         if lat is None or lon is None:
             continue
         seen.add(icao24)
+        prefix, number = parse_callsign(callsign)
         if icao24 in active:
             af = active[icao24]
             af["last_coord"] = [lat, lon]
             af["last_updated"] = now
             af["callsign"] = callsign
+            af["airline"] = prefix
+            af["flight_number"] = number
         else:
+            origin_ap = nearest_airport(lat, lon, airports)
             active[icao24] = {
                 "callsign": callsign,
+                "airline": prefix,
+                "flight_number": number,
+                "origin": origin_ap["code"] if origin_ap else None,
+                "origin_name": origin_ap["name"] if origin_ap else None,
                 "origin_coord": [lat, lon],
                 "last_coord": [lat, lon],
                 "first_seen": now,
@@ -293,6 +303,14 @@ def update_flights():
     })
     STATS_PATH.write_text(json.dumps(stats, indent=2))
     return {"routes": len(routes), "active": len(active), "last_run": now}
+
+
+@app.get("/active-flights")
+def get_active_flights():
+    """Return the currently tracked active flights."""
+    if ACTIVE_FLIGHTS_PATH.exists():
+        return FileResponse(ACTIVE_FLIGHTS_PATH)
+    return {}
 
 
 @app.get("/routes-db")

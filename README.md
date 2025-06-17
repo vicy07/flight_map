@@ -18,6 +18,9 @@ appears next to the path display so you can clear the itinerary with a single
 click.
 Routes flown by different airlines use unique colors so overlapping carriers are
 easy to distinguish on the map.
+Active flights appear using small plane icons about the size of a circle with
+radius&nbsp;4. Hover a plane to see its flight code, airline, time in the air
+and origin airport.
 
 ## Development
 
@@ -68,6 +71,9 @@ Run the `/update-airports` endpoint to download the latest airports from OurAirp
 curl -X POST http://localhost:8000/update-airports
 ```
 
+If `$DATA_DIR/airports.json` does not exist the map will fail to load; invoking
+this endpoint creates the file so the front-end can function.
+
 This downloads `airports.csv` and `countries.csv` from OurAirports and combines them with the data in `routes_dynamic.json`, generating `$DATA_DIR/airports.json` with country names embedded for use by the front-end. Airports that have no outgoing routes are excluded from the resulting file.
 
 ### Updating live flight data
@@ -105,6 +111,12 @@ For a high level summary of the collected data you can query `/routes-info`:
 
 ```bash
 curl http://localhost:8000/routes-info
+```
+
+The live positions being tracked can also be retrieved via `/active-flights`:
+
+```bash
+curl http://localhost:8000/active-flights
 ```
 
 ## Deployment on Railway
