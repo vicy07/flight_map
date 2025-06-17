@@ -70,6 +70,20 @@ curl -X POST http://localhost:8000/update-airports
 
 This downloads `airports.csv` and `countries.csv` from OurAirports plus `routes.dat` and `airlines.dat` from OpenFlights, generating `$DATA_DIR/airports.json` with airline and country names embedded for use by the front-end. Airports that have no outgoing routes are excluded from the resulting file.
 
+### Updating live flight data
+
+Use `/update-flights` to gather active flights from the OpenSky API. A simplified list of flights is stored in `$DATA_DIR/routes_dynamic.json`. Statistics about the collection are written to `$DATA_DIR/routes_stats.json` and can be retrieved via `/routes-stats`.
+
+```bash
+curl -X POST http://localhost:8000/update-flights
+```
+
+The current dataset can be downloaded with:
+
+```bash
+curl http://localhost:8000/routes-db
+```
+
 ## Deployment on Railway
 
 Create a project from this repository and configure a persistent volume mounted at `/data`. Set the `DATA_DIR` environment variable to `/data` so updated airport data persists between deployments.

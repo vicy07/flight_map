@@ -6,11 +6,14 @@ import os
 import csv
 import json
 from pathlib import Path
+from datetime import datetime
 import requests
 
 DATA_DIR = Path(os.environ.get("DATA_DIR", "public"))
 DATA_DIR.mkdir(parents=True, exist_ok=True)
 AIRPORTS_PATH = DATA_DIR / "airports.json"
+ROUTES_DB_PATH = DATA_DIR / "routes_dynamic.json"
+STATS_PATH = DATA_DIR / "routes_stats.json"
 
 app = FastAPI()
 
@@ -116,6 +119,60 @@ def update_airports():
     )
 
     return {"airports": len(airports_with_routes), "routes": route_count}
+
+
+@app.post("/update-flights")
+def update_flights():
+    """Fetch active flights from OpenSky and store simplified data."""
+    resp = requests.get("https://opensky-network.org/api/states/all")
+    resp.raise_for_status()
+    data = resp.json()
+
+    now = datetime.utcnow().isoformat() + "Z"
+
+    flights = {}
+    if ROUTES_DB_PATH.exists():
+        try:
+            for f in json.loads(ROUTES_DB_PATH.read_text() or "[]"):
+                flights[f["icao24"]] = f
+        except json.JSONDecodeError:
+            pass
+
+    for s in data.get("states", []):
+        icao24 = s[0]
+        callsign = s[1].strip() if s[1] else ""
+        lon = s[5]
+        lat = s[6]
+        if icao24 in flights:
+            flights[icao24]["last_coord"] = [lat, lon]
+            flights[icao24]["last_updated"] = now
+        else:
+            flights[icao24] = {
+                "icao24": icao24,
+                "callsign": callsign,
+                "origin_coord": [lat, lon],
+                "last_coord": [lat, lon],
+                "first_seen": now,
+                "last_updated": now,
+            }
+
+    ROUTES_DB_PATH.write_text(json.dumps(list(flights.values()), indent=2))
+    STATS_PATH.write_text(json.dumps({"routes": len(flights), "last_run": now}))
+    return {"routes": len(flights), "last_run": now}
+
+
+@app.get("/routes-db")
+def get_routes_db():
+    """Return the dynamically built routes database."""
+    return FileResponse(ROUTES_DB_PATH)
+
+
+@app.get("/routes-stats")
+def get_routes_stats():
+    """Return statistics about the routes database."""
+    if STATS_PATH.exists():
+        return json.loads(STATS_PATH.read_text())
+    return {"routes": 0, "last_run": None}
 
 # Serve static files from the public directory (mounted last so API routes take precedence)
 app.mount("/", StaticFiles(directory="public", html=True), name="static")
