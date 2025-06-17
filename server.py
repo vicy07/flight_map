@@ -83,6 +83,8 @@ def update_airports():
         return R * c
 
     def nearest_airport(lat, lon):
+        if lat is None or lon is None:
+            return None
         best = None
         best_d = float("inf")
         for ap in airports.values():

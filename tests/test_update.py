@@ -52,6 +52,12 @@ def test_update_airports(tmp_path, monkeypatch):
             "callsign": "AL123",
             "origin_coord": [10, 20],
             "last_coord": [30, 40],
+        },
+        {
+            "icao24": "zzz",
+            "callsign": "BAD",
+            "origin_coord": [None, None],
+            "last_coord": [None, None],
         }
     ]
     (data_dir / "routes_dynamic.json").write_text(json.dumps(flights))
