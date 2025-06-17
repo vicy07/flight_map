@@ -64,6 +64,11 @@ docker run --rm flight_map pytest
 
 `public/airports.json` contains example data with a small set of airports and routes. Each airport entry lists its code, ISO country and human readable country name so the front-end can provide tooltips and filtering. When running the container with a volume mounted at `$DATA_DIR`, updated data will be written there. The dataset is fetched from OurAirports for airport and country details while route information comes from the flights collected via `/update-flights`.
 
+Two airport files are produced when running `update-airports`:
+
+* `airports.json` – only airports that have routes; used by the front-end.
+* `airports_full.json` – the complete list of airports used internally for matching flights to the nearest airport.
+
 ### Updating data
 
 Run the `/update-airports` endpoint to download the latest airports from OurAirports and merge them with your collected flight database (`routes_dynamic.json`):
@@ -75,7 +80,10 @@ curl -X POST http://localhost:8000/update-airports
 If `$DATA_DIR/airports.json` does not exist the map will fail to load; invoking
 this endpoint creates the file so the front-end can function.
 
-This downloads `airports.csv` and `countries.csv` from OurAirports and combines them with the data in `routes_dynamic.json`, generating `$DATA_DIR/airports.json` with country names embedded for use by the front-end. Airports that have no outgoing routes are excluded from the resulting file.
+This downloads `airports.csv` and `countries.csv` from OurAirports and combines them with the data in `routes_dynamic.json`. Two files are produced:
+
+* `$DATA_DIR/airports.json` containing only airports with routes for the UI.
+* `$DATA_DIR/airports_full.json` with the entire airport list for route matching.
 
 ### Updating live flight data
 

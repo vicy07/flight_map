@@ -48,6 +48,7 @@ def test_update_airports(tmp_path, monkeypatch):
     monkeypatch.setattr(server.requests, "get", fake_get)
     monkeypatch.setattr(server, "DATA_DIR", data_dir)
     monkeypatch.setattr(server, "AIRPORTS_PATH", data_dir / "airports.json")
+    monkeypatch.setattr(server, "AIRPORTS_FULL_PATH", data_dir / "airports_full.json")
     monkeypatch.setattr(server, "ROUTES_DB_PATH", data_dir / "routes_dynamic.json")
     monkeypatch.setattr(server, "STATS_PATH", data_dir / "routes_stats.json")
 
@@ -91,6 +92,9 @@ def test_update_airports(tmp_path, monkeypatch):
     assert stats["airports_active"] == 1
     assert stats["airports_total"] == 2
 
+    full = json.loads((data_dir / "airports_full.json").read_text())
+    assert len(full) == 2
+
     info = TestClient(server.app).get("/info").json()
     assert info["active_airports"] == 1
 
@@ -125,6 +129,7 @@ def test_update_airports_no_routes(tmp_path, monkeypatch):
     monkeypatch.setattr(server.requests, "get", fake_get)
     monkeypatch.setattr(server, "DATA_DIR", data_dir)
     monkeypatch.setattr(server, "AIRPORTS_PATH", data_dir / "airports.json")
+    monkeypatch.setattr(server, "AIRPORTS_FULL_PATH", data_dir / "airports_full.json")
     monkeypatch.setattr(server, "ROUTES_DB_PATH", data_dir / "routes_dynamic.json")
     monkeypatch.setattr(server, "STATS_PATH", data_dir / "routes_stats.json")
 
@@ -142,6 +147,9 @@ def test_update_airports_no_routes(tmp_path, monkeypatch):
     stats = json.loads((data_dir / "routes_stats.json").read_text())
     assert stats["airports_active"] == 2
     assert stats["airports_total"] == 2
+
+    full = json.loads((data_dir / "airports_full.json").read_text())
+    assert len(full) == 2
 
 
 def test_update_airports_self_clean(tmp_path, monkeypatch):
@@ -174,6 +182,7 @@ def test_update_airports_self_clean(tmp_path, monkeypatch):
     monkeypatch.setattr(server.requests, "get", fake_get)
     monkeypatch.setattr(server, "DATA_DIR", data_dir)
     monkeypatch.setattr(server, "AIRPORTS_PATH", data_dir / "airports.json")
+    monkeypatch.setattr(server, "AIRPORTS_FULL_PATH", data_dir / "airports_full.json")
     monkeypatch.setattr(server, "ROUTES_DB_PATH", data_dir / "routes_dynamic.json")
     monkeypatch.setattr(server, "STATS_PATH", data_dir / "routes_stats.json")
 
@@ -213,6 +222,9 @@ def test_update_airports_self_clean(tmp_path, monkeypatch):
     routes_db = json.loads((data_dir / "routes_dynamic.json").read_text())
     assert len(routes_db) == 1
     assert routes_db[0]["destination"] == "BBB"
+
+    full = json.loads((data_dir / "airports_full.json").read_text())
+    assert len(full) == 2
 
 
 def test_get_airports_missing(tmp_path, monkeypatch):
