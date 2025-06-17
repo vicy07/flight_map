@@ -26,6 +26,12 @@ const colorPalette = [
   '#000075', '#808080'
 ];
 
+const planeIcon = L.icon({
+  iconUrl: 'plane.svg',
+  iconSize: [4, 4],
+  iconAnchor: [2, 2],
+});
+
 function parseCallsign(cs) {
   cs = (cs || '').trim();
   if (!cs) return ['', ''];
@@ -119,12 +125,7 @@ function loadActiveFlights() {
         const [lat, lon] = f.last_coord;
         if (lat == null || lon == null) return;
         const [, number] = parseCallsign(f.callsign);
-        const marker = L.circleMarker([lat, lon], {
-          radius: 4,
-          color: 'red',
-          fillColor: 'red',
-          fillOpacity: 1,
-        })
+        const marker = L.marker([lat, lon], { icon: planeIcon })
           .addTo(map)
           .bindTooltip(number || f.callsign || '');
         activeFlightMarkers.push(marker);
