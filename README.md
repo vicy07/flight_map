@@ -20,7 +20,8 @@ Routes flown by different airlines use unique colors so overlapping carriers are
 easy to distinguish on the map.
 Active flights appear using small plane icons about the size of a circle with
 radius&nbsp;4. Hover a plane to see its flight code, airline, time in the air
-and origin airport.
+and origin airport. Enable the **Show Planes** checkbox to load these markers;
+when an airline filter is selected only planes from that carrier are shown.
 
 ## Development
 

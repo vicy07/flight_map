@@ -91,6 +91,9 @@ function applyFilter() {
 
   selectedRoutes.length = 0;
   updatePathDisplay();
+  if (planeToggle.checked) {
+    loadActiveFlights();
+  }
 }
 
 function toggleRouteSelection(line, route) {
@@ -113,7 +116,9 @@ function loadActiveFlights() {
     .then(data => {
       activeFlightMarkers.forEach(m => map.removeLayer(m));
       activeFlightMarkers.length = 0;
+      const airlineFilter = filterSelect.value;
       Object.values(data || {}).forEach(f => {
+        if (airlineFilter && f.airline !== airlineFilter) return;
         if (!Array.isArray(f.last_coord)) return;
         const [lat, lon] = f.last_coord;
         if (lat == null || lon == null) return;
