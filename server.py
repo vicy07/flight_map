@@ -155,8 +155,12 @@ def update_airports():
         })
         route_count += 1
 
-    # Keep only airports that actually have outgoing routes
+    # Keep only airports that actually have outgoing routes. If no routes have
+    # been collected yet, preserve all airports so that update_flights can
+    # match future flights to the nearest airport.
     airports_with_routes = [a for a in airports.values() if a["routes"]]
+    if not airports_with_routes:
+        airports_with_routes = list(airports.values())
 
     AIRPORTS_PATH.write_text(
         json.dumps(airports_with_routes, indent=2)

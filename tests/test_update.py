@@ -95,6 +95,55 @@ def test_update_airports(tmp_path, monkeypatch):
     assert info["active_airports"] == 1
 
 
+def test_update_airports_no_routes(tmp_path, monkeypatch):
+    """When no routes exist, all airports should be kept."""
+    airports_csv = (
+        "id,ident,type,name,latitude_deg,longitude_deg,elevation_ft,continent,iso_country,iso_region,municipality,scheduled_service,icao_code,iata_code,gps_code,local_code,home_link,wikipedia_link,keywords\n"
+        "1,AAA,airport,AirportA,10,20,,EU,AA,AA-1,CityA,yes,,AAA,AAA,,,\n"
+        "2,BBB,airport,AirportB,30,40,,EU,BB,BB-1,CityB,yes,,BBB,BBB,,,"
+    )
+    countries_csv = (
+        "id,code,name,continent,wikipedia_link,keywords\n"
+        "1,AA,Country AA,EU,,\n"
+        "2,BB,Country BB,EU,,"
+    )
+    airlines_dat = "1,Test Airline,\\N,AL,ALN,CALL,Country,Y\n"
+
+    def fake_get(url):
+        if "airports.csv" in url:
+            return fake_response(airports_csv)
+        if "countries.csv" in url:
+            return fake_response(countries_csv)
+        if "airlines.dat" in url:
+            return fake_response(airlines_dat)
+        raise AssertionError(url)
+
+    monkeypatch.chdir(tmp_path)
+    data_dir = tmp_path / "data"
+    data_dir.mkdir()
+    (tmp_path / "public").mkdir()
+    monkeypatch.setattr(server.requests, "get", fake_get)
+    monkeypatch.setattr(server, "DATA_DIR", data_dir)
+    monkeypatch.setattr(server, "AIRPORTS_PATH", data_dir / "airports.json")
+    monkeypatch.setattr(server, "ROUTES_DB_PATH", data_dir / "routes_dynamic.json")
+    monkeypatch.setattr(server, "STATS_PATH", data_dir / "routes_stats.json")
+
+    # No routes collected yet
+    (data_dir / "routes_dynamic.json").write_text("[]")
+
+    client = TestClient(server.app)
+    resp = client.post("/update-airports")
+    assert resp.status_code == 200
+
+    data = json.loads((data_dir / "airports.json").read_text())
+    assert len(data) == 2
+    assert all(not a["routes"] for a in data)
+
+    stats = json.loads((data_dir / "routes_stats.json").read_text())
+    assert stats["airports_active"] == 2
+    assert stats["airports_total"] == 2
+
+
 def test_get_airports_missing(tmp_path, monkeypatch):
     """/airports.json should return 404 when no data file exists."""
     monkeypatch.chdir(tmp_path)
