@@ -16,11 +16,6 @@ const routesPane = map.createPane('routes');
 routesPane.style.zIndex = 200;
 const markers = [];
 const activeFlightMarkers = [];
-const planeIcon = L.icon({
-  iconUrl: 'plane.svg',
-  iconSize: [8, 8],
-  iconAnchor: [4, 4],
-});
 const minRadius = 8;
 const maxRadius = 35;
 const airlineColors = {};
@@ -119,22 +114,19 @@ function loadActiveFlights() {
     .then(data => {
       activeFlightMarkers.forEach(m => map.removeLayer(m));
       activeFlightMarkers.length = 0;
-      const now = Date.now();
       Object.values(data || {}).forEach(f => {
         if (!Array.isArray(f.last_coord)) return;
         const [lat, lon] = f.last_coord;
         if (lat == null || lon == null) return;
         const [, number] = parseCallsign(f.callsign);
-        const prefix = f.airline || '';
-        const minutes = f.first_seen ? Math.round((now - Date.parse(f.first_seen)) / 60000) : 0;
-        const parts = [];
-        if (number || f.callsign) parts.push(number || f.callsign);
-        if (prefix) parts.push(prefix);
-        if (minutes) parts.push(minutes + 'm');
-        if (f.origin) parts.push('from ' + f.origin);
-        const marker = L.marker([lat, lon], { icon: planeIcon })
+        const marker = L.circleMarker([lat, lon], {
+          radius: 4,
+          color: 'red',
+          fillColor: 'red',
+          fillOpacity: 1,
+        })
           .addTo(map)
-          .bindTooltip(parts.join(' | '));
+          .bindTooltip(number || f.callsign || '');
         activeFlightMarkers.push(marker);
       });
     });
@@ -160,8 +152,15 @@ resetBtn.addEventListener('click', () => {
 });
 
 fetch('airports.json')
-  .then(r => r.json())
+  .then(r => {
+    if (!r.ok) {
+      console.error('Failed to load airports data:', r.status);
+      return [];
+    }
+    return r.json();
+  })
   .then(data => {
+    if (!Array.isArray(data)) data = [];
     airportsData = data.filter(a => a.routes && a.routes.length);
     const airlinesSet = new Set();
     const countriesMap = new Map();

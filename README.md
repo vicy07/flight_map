@@ -18,6 +18,8 @@ appears next to the path display so you can clear the itinerary with a single
 click.
 Routes flown by different airlines use unique colors so overlapping carriers are
 easy to distinguish on the map.
+Active flights are drawn as small red points. Hover a point to see the flight
+number taken from its callsign.
 
 ## Development
 
