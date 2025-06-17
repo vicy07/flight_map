@@ -17,6 +17,8 @@ const routesPane = map.createPane('routes');
 routesPane.style.zIndex = 200;
 const markers = [];
 const activeFlightMarkers = [];
+const activeFlightsLayer = L.layerGroup();
+let planeIntervalId = null;
 const minRadius = 8;
 const maxRadius = 35;
 const airlineColors = {};
@@ -92,6 +94,9 @@ function applyFilter() {
   selectedRoutes.length = 0;
   updatePathDisplay();
   if (planeToggle.checked) {
+    if (!map.hasLayer(activeFlightsLayer)) {
+      activeFlightsLayer.addTo(map);
+    }
     loadActiveFlights();
   }
 }
@@ -114,7 +119,7 @@ function loadActiveFlights() {
   fetch('active-flights')
     .then(r => r.json())
     .then(data => {
-      activeFlightMarkers.forEach(m => map.removeLayer(m));
+      activeFlightMarkers.forEach(m => activeFlightsLayer.removeLayer(m));
       activeFlightMarkers.length = 0;
       const airlineFilter = filterSelect.value;
       Object.values(data || {}).forEach(f => {
@@ -138,7 +143,7 @@ function loadActiveFlights() {
           .filter(Boolean)
           .join(', ');
         const marker = L.marker([lat, lon], { icon: planeIcon })
-          .addTo(map)
+          .addTo(activeFlightsLayer)
           .bindTooltip(info);
         activeFlightMarkers.push(marker);
       });
@@ -157,10 +162,17 @@ resetCountryBtn.addEventListener('click', () => {
 });
 planeToggle.addEventListener('change', () => {
   if (planeToggle.checked) {
+    activeFlightsLayer.addTo(map);
     loadActiveFlights();
+    planeIntervalId = setInterval(loadActiveFlights, 60000);
   } else {
-    activeFlightMarkers.forEach(m => map.removeLayer(m));
+    if (planeIntervalId) {
+      clearInterval(planeIntervalId);
+      planeIntervalId = null;
+    }
+    activeFlightMarkers.forEach(m => activeFlightsLayer.removeLayer(m));
     activeFlightMarkers.length = 0;
+    map.removeLayer(activeFlightsLayer);
   }
 });
 resetBtn.addEventListener('click', () => {
@@ -254,6 +266,8 @@ fetch('airports.json')
 
     applyFilter();
     if (planeToggle.checked) {
+      activeFlightsLayer.addTo(map);
+      planeIntervalId = setInterval(loadActiveFlights, 60000);
       loadActiveFlights();
     }
   });
