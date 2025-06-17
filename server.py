@@ -14,7 +14,11 @@ from scipy.spatial import cKDTree
 
 DATA_DIR = Path(os.environ.get("DATA_DIR", "public"))
 DATA_DIR.mkdir(parents=True, exist_ok=True)
-AIRPORTS_PATH = DATA_DIR / "airports.json"
+
+# The front-end uses a filtered airport list while route processing relies on
+# the complete dataset. Keep separate files for each purpose.
+AIRPORTS_PATH = DATA_DIR / "airports.json"  # filtered for UI
+AIRPORTS_FULL_PATH = DATA_DIR / "airports_full.json"
 ROUTES_DB_PATH = DATA_DIR / "routes_dynamic.json"
 ACTIVE_FLIGHTS_PATH = DATA_DIR / "active_flights.json"
 STATS_PATH = DATA_DIR / "routes_stats.json"
@@ -150,6 +154,17 @@ def update_airports():
         except json.JSONDecodeError:
             routes = []
 
+    # Self-clean invalid routes where source and destination are identical
+    cleaned_routes = []
+    for rt in routes:
+        src_code = rt.get("source")
+        dest_code = rt.get("destination")
+        if src_code and dest_code and src_code != dest_code:
+            cleaned_routes.append(rt)
+    if cleaned_routes != routes:
+        ROUTES_DB_PATH.write_text(json.dumps(cleaned_routes, indent=2))
+    routes = cleaned_routes
+
     # Build a mapping of airline codes to human readable names
     resp_airlines = requests.get(AIRLINES_URL)
     resp_airlines.raise_for_status()
@@ -186,19 +201,20 @@ def update_airports():
         })
         route_count += 1
 
-    # Keep only airports that actually have outgoing routes. If no routes have
-    # been collected yet, preserve all airports so that update_flights can
-    # match future flights to the nearest airport.
+    # Keep only airports that actually have outgoing routes for the UI. The full
+    # airport list is stored separately so route processing can still locate any
+    # airport even if it has no recorded flights yet.
     airports_with_routes = [a for a in airports.values() if a["routes"]]
     if not airports_with_routes:
         airports_with_routes = list(airports.values())
 
     AIRPORTS_PATH.write_text(json.dumps(airports_with_routes, indent=2))
+    AIRPORTS_FULL_PATH.write_text(json.dumps(list(airports.values()), indent=2))
 
-    # Build lookup structures for nearest airport queries
+    # Build lookup structures for nearest airport queries using the full list
     global AIRPORTS_MAP
-    AIRPORTS_MAP = {a["code"]: a for a in airports_with_routes}
-    build_airport_tree(airports_with_routes)
+    AIRPORTS_MAP = {a["code"]: a for a in airports.values()}
+    build_airport_tree(airports.values())
 
     # Update stats file with airport counts
     stats = {}
@@ -245,9 +261,9 @@ def update_flights():
 
     # Load airports for geolocation
     airports = {}
-    if AIRPORTS_PATH.exists():
+    if AIRPORTS_FULL_PATH.exists():
         try:
-            a_list = json.loads(AIRPORTS_PATH.read_text() or "[]")
+            a_list = json.loads(AIRPORTS_FULL_PATH.read_text() or "[]")
             airports = {a["code"]: a for a in a_list}
         except json.JSONDecodeError:
             airports = {}
@@ -361,17 +377,9 @@ def get_routes_db():
     return FileResponse(ROUTES_DB_PATH)
 
 
-@app.get("/routes-stats")
-def get_routes_stats():
-    """Return statistics about the routes database."""
-    if STATS_PATH.exists():
-        return json.loads(STATS_PATH.read_text())
-    return {"routes": 0, "last_run": None}
-
-
-@app.get("/routes-info")
+@app.get("/info")
 def get_routes_info():
-    """Return summary statistics about airports and routes."""
+    """Return summary about airports and routes."""
     stats = {}
     if STATS_PATH.exists():
         try:

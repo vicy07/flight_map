@@ -11,6 +11,7 @@ const resetBtn = document.getElementById('reset');
 const resetAirlineBtn = document.getElementById('reset-airline');
 const countrySelect = document.getElementById('country-filter');
 const resetCountryBtn = document.getElementById('reset-country');
+const planeToggle = document.getElementById('plane-toggle');
 const selectedRoutes = [];
 const routesPane = map.createPane('routes');
 routesPane.style.zIndex = 200;
@@ -90,6 +91,9 @@ function applyFilter() {
 
   selectedRoutes.length = 0;
   updatePathDisplay();
+  if (planeToggle.checked) {
+    loadActiveFlights();
+  }
 }
 
 function toggleRouteSelection(line, route) {
@@ -112,7 +116,9 @@ function loadActiveFlights() {
     .then(data => {
       activeFlightMarkers.forEach(m => map.removeLayer(m));
       activeFlightMarkers.length = 0;
+      const airlineFilter = filterSelect.value;
       Object.values(data || {}).forEach(f => {
+        if (airlineFilter && f.airline !== airlineFilter) return;
         if (!Array.isArray(f.last_coord)) return;
         const [lat, lon] = f.last_coord;
         if (lat == null || lon == null) return;
@@ -148,6 +154,14 @@ countrySelect.addEventListener('change', applyFilter);
 resetCountryBtn.addEventListener('click', () => {
   countrySelect.value = '';
   applyFilter();
+});
+planeToggle.addEventListener('change', () => {
+  if (planeToggle.checked) {
+    loadActiveFlights();
+  } else {
+    activeFlightMarkers.forEach(m => map.removeLayer(m));
+    activeFlightMarkers.length = 0;
+  }
 });
 resetBtn.addEventListener('click', () => {
   markers.forEach(m => {
@@ -239,5 +253,7 @@ fetch('airports.json')
       });
 
     applyFilter();
-    loadActiveFlights();
+    if (planeToggle.checked) {
+      loadActiveFlights();
+    }
   });

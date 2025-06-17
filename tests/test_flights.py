@@ -37,11 +37,13 @@ def test_update_flights(tmp_path, monkeypatch):
     monkeypatch.setattr(server, "ACTIVE_FLIGHTS_PATH", data_dir / "active_flights.json")
     monkeypatch.setattr(server, "STATS_PATH", data_dir / "routes_stats.json")
     monkeypatch.setattr(server, "AIRPORTS_PATH", data_dir / "airports.json")
+    monkeypatch.setattr(server, "AIRPORTS_FULL_PATH", data_dir / "airports_full.json")
     airports = [
         {"code": "AAA", "name": "A", "lat": 10, "lon": 20},
         {"code": "BBB", "name": "B", "lat": 30, "lon": 40},
     ]
     Path(server.AIRPORTS_PATH).write_text(json.dumps(airports))
+    Path(server.AIRPORTS_FULL_PATH).write_text(json.dumps(airports))
     server.AIRPORTS_MAP = {a["code"]: a for a in airports}
     server.build_airport_tree(airports)
     
@@ -63,12 +65,11 @@ def test_update_flights(tmp_path, monkeypatch):
     assert stats["routes"] == 1
     assert stats["active_planes"] == 1
 
-    info = TestClient(server.app).get("/routes-info").json()
+    info = TestClient(server.app).get("/info").json()
     assert info["routes"] == 1
     assert info["active_planes"] == 1
 
     assert TestClient(server.app).get("/routes-db").status_code == 200
-    assert TestClient(server.app).get("/routes-stats").json()["routes"] == 1
 
 
 def test_update_flights_missing_destination(tmp_path, monkeypatch):
@@ -106,6 +107,7 @@ def test_update_flights_missing_destination(tmp_path, monkeypatch):
         {"code": "BBB", "name": "B", "lat": 30, "lon": 40},
     ]
     Path(server.AIRPORTS_PATH).write_text(json.dumps(airports))
+    Path(server.AIRPORTS_FULL_PATH).write_text(json.dumps(airports))
     server.AIRPORTS_MAP = {a["code"]: a for a in airports}
     server.build_airport_tree(airports)
 
@@ -125,7 +127,7 @@ def test_update_flights_missing_destination(tmp_path, monkeypatch):
     assert stats["routes"] == 1
     assert stats["active_planes"] == 0
 
-    info = TestClient(server.app).get("/routes-info").json()
+    info = TestClient(server.app).get("/info").json()
     assert info["routes"] == 1
     assert info["active_planes"] == 0
 
