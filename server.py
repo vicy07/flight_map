@@ -197,6 +197,7 @@ def update_airports():
             "from_name": src["name"],
             "to_name": dest["name"],
             "airline": airline_name,
+            "airline_code": prefix,
             "flight_number": number
         })
         route_count += 1
