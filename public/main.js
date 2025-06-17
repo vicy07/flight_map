@@ -15,6 +15,7 @@ const selectedRoutes = [];
 const routesPane = map.createPane('routes');
 routesPane.style.zIndex = 200;
 const markers = [];
+const activeFlightMarkers = [];
 const minRadius = 8;
 const maxRadius = 35;
 const airlineColors = {};
@@ -24,6 +25,14 @@ const colorPalette = [
   '#9A6324', '#fffac8', '#800000', '#aaffc3', '#808000', '#ffd8b1',
   '#000075', '#808080'
 ];
+
+function parseCallsign(cs) {
+  cs = (cs || '').trim();
+  if (!cs) return ['', ''];
+  const m = cs.match(/^([A-Za-z]{2,3})(.*)$/);
+  if (m) return [m[1].toUpperCase(), m[2].trim()];
+  return ['', cs];
+}
 
 function getAirlineColor(code) {
   if (!airlineColors[code]) {
@@ -97,6 +106,29 @@ function toggleRouteSelection(line, route) {
   selectedRoutes.push({ line, route });
   }
   updatePathDisplay();
+}
+
+function loadActiveFlights() {
+  fetch('active-flights')
+    .then(r => r.json())
+    .then(data => {
+      Object.values(data || {}).forEach(f => {
+        if (!Array.isArray(f.last_coord)) return;
+        const [lat, lon] = f.last_coord;
+        if (lat == null || lon == null) return;
+        const [, number] = parseCallsign(f.callsign);
+        const marker = L.circleMarker([lat, lon], {
+          radius: 4,
+          color: 'orange',
+          fillColor: 'orange',
+          fillOpacity: 1,
+          weight: 1,
+        })
+          .addTo(map)
+          .bindTooltip(number || f.callsign || '');
+        activeFlightMarkers.push(marker);
+      });
+    });
 }
 
 filterSelect.addEventListener('change', applyFilter);
@@ -192,4 +224,5 @@ fetch('airports.json')
       });
 
     applyFilter();
+    loadActiveFlights();
   });

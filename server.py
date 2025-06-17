@@ -295,6 +295,14 @@ def update_flights():
     return {"routes": len(routes), "active": len(active), "last_run": now}
 
 
+@app.get("/active-flights")
+def get_active_flights():
+    """Return the currently tracked active flights."""
+    if ACTIVE_FLIGHTS_PATH.exists():
+        return FileResponse(ACTIVE_FLIGHTS_PATH)
+    return {}
+
+
 @app.get("/routes-db")
 def get_routes_db():
     """Return the dynamically built routes database."""

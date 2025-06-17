@@ -107,6 +107,12 @@ For a high level summary of the collected data you can query `/routes-info`:
 curl http://localhost:8000/routes-info
 ```
 
+The live positions being tracked can also be retrieved via `/active-flights`:
+
+```bash
+curl http://localhost:8000/active-flights
+```
+
 ## Deployment on Railway
 
 Create a project from this repository and configure a persistent volume mounted at `/data`. Set the `DATA_DIR` environment variable to `/data` so updated airport data persists between deployments.
