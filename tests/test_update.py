@@ -30,11 +30,15 @@ def test_update_airports(tmp_path, monkeypatch):
         "1,AA,Country AA,EU,,\n"
         "2,BB,Country BB,EU,,"
     )
+    airlines_dat = "1,Test Airline,\\N,AL,ALN,CALL,Country,Y\n"
+
     def fake_get(url):
         if "airports.csv" in url:
             return fake_response(airports_csv)
         if "countries.csv" in url:
             return fake_response(countries_csv)
+        if "airlines.dat" in url:
+            return fake_response(airlines_dat)
         raise AssertionError(url)
 
     monkeypatch.chdir(tmp_path)
@@ -69,6 +73,7 @@ def test_update_airports(tmp_path, monkeypatch):
     data = json.loads((data_dir / "airports.json").read_text())
     assert len(data) == 1
     assert len(data[0]["routes"]) == 1
-    assert data[0]["routes"][0]["airline"] == "AL123"
+    assert data[0]["routes"][0]["airline"] == "Test Airline"
+    assert data[0]["routes"][0]["flight_number"] == "123"
     assert data[0]["country_code"] == "AA"
     assert data[0]["country"] == "Country AA"

@@ -22,8 +22,8 @@ def test_update_flights(tmp_path, monkeypatch):
     states = {
         "time": 1,
         "states": [
-            ["abc", "CALL1 ", "", 0, 0, 10.0, 20.0],
-            ["def", "CALL2 ", "", 0, 0, 30.0, 40.0],
+            ["abc", "AL123 ", "", 0, 0, 10.0, 20.0],
+            ["def", "RYR456 ", "", 0, 0, 30.0, 40.0],
         ],
     }
 
@@ -45,6 +45,10 @@ def test_update_flights(tmp_path, monkeypatch):
 
     data = json.loads((data_dir / "routes_dynamic.json").read_text())
     assert len(data) == 2
+    assert data[0]["airline"] == "AL"
+    assert data[0]["flight_number"] == "123"
+    assert data[1]["airline"] == "RYR"
+    assert data[1]["flight_number"] == "456"
     stats = json.loads((data_dir / "routes_stats.json").read_text())
     assert stats["routes"] == 2
 

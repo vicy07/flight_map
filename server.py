@@ -8,6 +8,7 @@ import json
 from pathlib import Path
 from datetime import datetime
 from math import radians, cos, sin, asin, sqrt
+import re
 import requests
 
 DATA_DIR = Path(os.environ.get("DATA_DIR", "public"))
@@ -15,8 +16,25 @@ DATA_DIR.mkdir(parents=True, exist_ok=True)
 AIRPORTS_PATH = DATA_DIR / "airports.json"
 ROUTES_DB_PATH = DATA_DIR / "routes_dynamic.json"
 STATS_PATH = DATA_DIR / "routes_stats.json"
+AIRLINES_URL = "https://raw.githubusercontent.com/jpatokal/openflights/master/data/airlines.dat"
 
 app = FastAPI()
+
+
+CALLSIGN_RE = re.compile(r"^([A-Za-z]{2,3})")
+
+
+def parse_callsign(callsign: str):
+    """Return (prefix, number) from a callsign string."""
+    cs = (callsign or "").strip()
+    if not cs:
+        return "", ""
+    m = CALLSIGN_RE.match(cs)
+    if m:
+        prefix = m.group(1).upper()
+        number = cs[m.end():].strip()
+        return prefix, number
+    return "", cs
 
 
 @app.get("/airports.json")
@@ -74,6 +92,22 @@ def update_airports():
         except json.JSONDecodeError:
             flights = []
 
+    # Build a mapping of airline codes to human readable names
+    resp_airlines = requests.get(AIRLINES_URL)
+    resp_airlines.raise_for_status()
+    airline_names = {}
+    for row in csv.reader(resp_airlines.text.splitlines()):
+        try:
+            name = row[1]
+            iata = row[3]
+            icao = row[4]
+        except IndexError:
+            continue
+        if iata and iata != "\\N":
+            airline_names[iata] = name
+        if icao and icao != "\\N":
+            airline_names[icao] = name
+
     def haversine(lat1, lon1, lat2, lon2):
         R = 6371.0
         dlat = radians(lat2 - lat1)
@@ -100,12 +134,18 @@ def update_airports():
         dest = nearest_airport(*fl.get("last_coord", (None, None)))
         if not src or not dest:
             continue
+        prefix = fl.get("airline")
+        number = fl.get("flight_number")
+        if not prefix:
+            prefix, number = parse_callsign(fl.get("callsign", ""))
+        airline_name = airline_names.get(prefix, prefix)
         src["routes"].append({
             "from": [src["lat"], src["lon"]],
             "to": [dest["lat"], dest["lon"]],
             "from_name": src["name"],
             "to_name": dest["name"],
-            "airline": fl.get("callsign") or fl.get("icao24")
+            "airline": airline_name,
+            "flight_number": number
         })
         route_count += 1
 
@@ -144,10 +184,17 @@ def update_flights():
         if icao24 in flights:
             flights[icao24]["last_coord"] = [lat, lon]
             flights[icao24]["last_updated"] = now
+            flights[icao24]["callsign"] = callsign
+            prefix, number = parse_callsign(callsign)
+            flights[icao24]["airline"] = prefix
+            flights[icao24]["flight_number"] = number
         else:
+            prefix, number = parse_callsign(callsign)
             flights[icao24] = {
                 "icao24": icao24,
                 "callsign": callsign,
+                "airline": prefix,
+                "flight_number": number,
                 "origin_coord": [lat, lon],
                 "last_coord": [lat, lon],
                 "first_seen": now,
