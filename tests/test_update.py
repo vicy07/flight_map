@@ -60,4 +60,3 @@ def test_update_airports(tmp_path, monkeypatch):
     assert data[0]["routes"][0]["airline"] == "Test Airline"
     assert data[0]["country_code"] == "AA"
     assert data[0]["country"] == "Country AA"
-

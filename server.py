@@ -58,6 +58,7 @@ def update_airports():
             "code": key,
             "lat": lat,
             "lon": lon,
+
             "country_code": country_code,
             "country": country_map.get(country_code, country_code),
             "routes": []
