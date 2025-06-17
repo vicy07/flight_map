@@ -63,12 +63,11 @@ def test_update_flights(tmp_path, monkeypatch):
     assert stats["routes"] == 1
     assert stats["active_planes"] == 1
 
-    info = TestClient(server.app).get("/routes-info").json()
+    info = TestClient(server.app).get("/info").json()
     assert info["routes"] == 1
     assert info["active_planes"] == 1
 
     assert TestClient(server.app).get("/routes-db").status_code == 200
-    assert TestClient(server.app).get("/routes-stats").json()["routes"] == 1
 
 
 def test_update_flights_missing_destination(tmp_path, monkeypatch):
@@ -125,7 +124,7 @@ def test_update_flights_missing_destination(tmp_path, monkeypatch):
     assert stats["routes"] == 1
     assert stats["active_planes"] == 0
 
-    info = TestClient(server.app).get("/routes-info").json()
+    info = TestClient(server.app).get("/info").json()
     assert info["routes"] == 1
     assert info["active_planes"] == 0
 

@@ -150,6 +150,17 @@ def update_airports():
         except json.JSONDecodeError:
             routes = []
 
+    # Self-clean invalid routes where source and destination are identical
+    cleaned_routes = []
+    for rt in routes:
+        src_code = rt.get("source")
+        dest_code = rt.get("destination")
+        if src_code and dest_code and src_code != dest_code:
+            cleaned_routes.append(rt)
+    if cleaned_routes != routes:
+        ROUTES_DB_PATH.write_text(json.dumps(cleaned_routes, indent=2))
+    routes = cleaned_routes
+
     # Build a mapping of airline codes to human readable names
     resp_airlines = requests.get(AIRLINES_URL)
     resp_airlines.raise_for_status()
@@ -361,17 +372,9 @@ def get_routes_db():
     return FileResponse(ROUTES_DB_PATH)
 
 
-@app.get("/routes-stats")
-def get_routes_stats():
-    """Return statistics about the routes database."""
-    if STATS_PATH.exists():
-        return json.loads(STATS_PATH.read_text())
-    return {"routes": 0, "last_run": None}
-
-
-@app.get("/routes-info")
+@app.get("/info")
 def get_routes_info():
-    """Return summary statistics about airports and routes."""
+    """Return summary about airports and routes."""
     stats = {}
     if STATS_PATH.exists():
         try:

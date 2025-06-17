@@ -95,7 +95,7 @@ Use `/update-flights` to gather active flights from the OpenSky API. Flights are
 ]
 ```
 
-Statistics about the collection are written to `$DATA_DIR/routes_stats.json` and can be retrieved via `/routes-stats`.
+Statistics about the collection are written to `$DATA_DIR/routes_stats.json`.
 
 ```bash
 curl -X POST http://localhost:8000/update-flights
@@ -107,10 +107,10 @@ The current dataset can be downloaded with:
 curl http://localhost:8000/routes-db
 ```
 
-For a high level summary of the collected data you can query `/routes-info`:
+For a high level summary of the collected data you can query `/info`:
 
 ```bash
-curl http://localhost:8000/routes-info
+curl http://localhost:8000/info
 ```
 
 The live positions being tracked can also be retrieved via `/active-flights`:
