@@ -10,6 +10,7 @@ from datetime import datetime, timedelta
 from math import radians, cos, sin, asin, sqrt
 import re
 import requests
+from scipy.spatial import cKDTree
 
 DATA_DIR = Path(os.environ.get("DATA_DIR", "public"))
 DATA_DIR.mkdir(parents=True, exist_ok=True)
@@ -23,6 +24,34 @@ app = FastAPI()
 
 
 CALLSIGN_RE = re.compile(r"^([A-Za-z]{2,3})")
+
+# Global airport lookup structures
+AIRPORTS_TREE = None
+AIRPORTS_INDEX = []
+AIRPORTS_MAP = {}
+
+EARTH_RADIUS_KM = 6371.0
+
+def _to_unit_vector(lat: float, lon: float):
+    """Convert lat/lon degrees to 3D unit vector."""
+    lat_r = radians(lat)
+    lon_r = radians(lon)
+    return [
+        cos(lat_r) * cos(lon_r),
+        cos(lat_r) * sin(lon_r),
+        sin(lat_r),
+    ]
+
+
+def build_airport_tree(airports):
+    """Build global KDTree from iterable of airport dicts."""
+    global AIRPORTS_TREE, AIRPORTS_INDEX
+    coords = []
+    AIRPORTS_INDEX = []
+    for ap in airports:
+        coords.append(_to_unit_vector(ap["lat"], ap["lon"]))
+        AIRPORTS_INDEX.append(ap["code"])
+    AIRPORTS_TREE = cKDTree(coords) if coords else None
 
 
 def parse_callsign(callsign: str):
@@ -48,18 +77,20 @@ def haversine(lat1, lon1, lat2, lon2):
     return R * c
 
 
-def nearest_airport(lat, lon, airports):
+def nearest_airport(lat: float, lon: float):
     """Return closest airport dict within 30km of given coordinates."""
-    if lat is None or lon is None:
+    if lat is None or lon is None or AIRPORTS_TREE is None:
         return None
-    best = None
-    best_d = float("inf")
-    for ap in airports.values():
-        d = haversine(lat, lon, ap["lat"], ap["lon"])
-        if d < best_d:
-            best = ap
-            best_d = d
-    return best if best_d <= 30 else None
+    point = _to_unit_vector(lat, lon)
+    dist, idx = AIRPORTS_TREE.query(point)
+    if idx >= len(AIRPORTS_INDEX):
+        return None
+    code = AIRPORTS_INDEX[idx]
+    ap = AIRPORTS_MAP.get(code)
+    if not ap:
+        return None
+    d = haversine(lat, lon, ap["lat"], ap["lon"])
+    return ap if d <= 30 else None
 
 
 @app.get("/airports.json")
@@ -158,9 +189,12 @@ def update_airports():
     # Keep only airports that actually have outgoing routes
     airports_with_routes = [a for a in airports.values() if a["routes"]]
 
-    AIRPORTS_PATH.write_text(
-        json.dumps(airports_with_routes, indent=2)
-    )
+    AIRPORTS_PATH.write_text(json.dumps(airports_with_routes, indent=2))
+
+    # Build lookup structures for nearest airport queries
+    global AIRPORTS_MAP
+    AIRPORTS_MAP = {a["code"]: a for a in airports_with_routes}
+    build_airport_tree(airports_with_routes)
 
     # Update stats file with airport counts
     stats = {}
@@ -213,6 +247,10 @@ def update_flights():
             airports = {a["code"]: a for a in a_list}
         except json.JSONDecodeError:
             airports = {}
+    global AIRPORTS_MAP
+    AIRPORTS_MAP = airports
+    if AIRPORTS_MAP and AIRPORTS_TREE is None:
+        build_airport_tree(AIRPORTS_MAP.values())
 
     seen = set()
     for s in data.get("states", []):
@@ -232,7 +270,7 @@ def update_flights():
             af["airline"] = prefix
             af["flight_number"] = number
         else:
-            origin_ap = nearest_airport(lat, lon, airports)
+            origin_ap = nearest_airport(lat, lon)
             active[icao24] = {
                 "callsign": callsign,
                 "airline": prefix,
@@ -250,8 +288,8 @@ def update_flights():
     for icao24 in finished:
         af = active.pop(icao24)
         prefix, number = parse_callsign(af.get("callsign", ""))
-        src = nearest_airport(*(af.get("origin_coord") or (None, None)), airports)
-        dest = nearest_airport(*(af.get("last_coord") or (None, None)), airports)
+        src = nearest_airport(*(af.get("origin_coord") or (None, None)))
+        dest = nearest_airport(*(af.get("last_coord") or (None, None)))
         if not src or not dest:
             continue
         key = (prefix, number, src["code"], dest["code"])
