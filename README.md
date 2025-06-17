@@ -18,8 +18,9 @@ appears next to the path display so you can clear the itinerary with a single
 click.
 Routes flown by different airlines use unique colors so overlapping carriers are
 easy to distinguish on the map.
-Active flights appear using tiny plane icons roughly the size of a circle with
-radius&nbsp;2. Hover a plane to see the flight number taken from its callsign.
+Active flights appear using small plane icons about the size of a circle with
+radius&nbsp;4. Hover a plane to see its flight code, airline, time in the air
+and origin airport.
 
 ## Development
 

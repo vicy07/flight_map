@@ -28,17 +28,9 @@ const colorPalette = [
 
 const planeIcon = L.icon({
   iconUrl: 'plane.svg',
-  iconSize: [4, 4],
-  iconAnchor: [2, 2],
+  iconSize: [8, 8],
+  iconAnchor: [4, 4],
 });
-
-function parseCallsign(cs) {
-  cs = (cs || '').trim();
-  if (!cs) return ['', ''];
-  const m = cs.match(/^([A-Za-z]{2,3})(.*)$/);
-  if (m) return [m[1].toUpperCase(), m[2].trim()];
-  return ['', cs];
-}
 
 function getAirlineColor(code) {
   if (!airlineColors[code]) {
@@ -124,10 +116,24 @@ function loadActiveFlights() {
         if (!Array.isArray(f.last_coord)) return;
         const [lat, lon] = f.last_coord;
         if (lat == null || lon == null) return;
-        const [, number] = parseCallsign(f.callsign);
+        const code = (f.callsign || '').trim() || `${f.airline || ''}${f.flight_number || ''}`;
+        let duration = '';
+        if (f.first_seen && f.last_updated) {
+          const first = Date.parse(f.first_seen);
+          const last = Date.parse(f.last_updated);
+          if (!isNaN(first) && !isNaN(last) && last >= first) {
+            const mins = Math.floor((last - first) / 60000);
+            const h = Math.floor(mins / 60);
+            const m = mins % 60;
+            duration = h ? `${h}h ${m}m` : `${m}m`;
+          }
+        }
+        const info = [code, f.airline, duration, f.origin_name || f.origin]
+          .filter(Boolean)
+          .join(', ');
         const marker = L.marker([lat, lon], { icon: planeIcon })
           .addTo(map)
-          .bindTooltip(number || f.callsign || '');
+          .bindTooltip(info);
         activeFlightMarkers.push(marker);
       });
     });
