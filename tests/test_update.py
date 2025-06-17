@@ -30,17 +30,16 @@ def test_update_airports(tmp_path, monkeypatch):
         "1,AA,Country AA,EU,,\n"
         "2,BB,Country BB,EU,,"
     )
-    routes_csv = "AL,1,AAA,1,BBB,2,\\N,0,\n"
-    airlines_dat = "1,Test Airline,\\N,AL,TAL,CALL,Country,Y\n"
+    airlines_dat = "1,Test Airline,\\N,AL,ALN,CALL,Country,Y\n"
 
     def fake_get(url):
         if "airports.csv" in url:
             return fake_response(airports_csv)
         if "countries.csv" in url:
             return fake_response(countries_csv)
-        if "routes.dat" in url:
-            return fake_response(routes_csv)
-        return fake_response(airlines_dat)
+        if "airlines.dat" in url:
+            return fake_response(airlines_dat)
+        raise AssertionError(url)
 
     monkeypatch.chdir(tmp_path)
     data_dir = tmp_path / "data"
@@ -49,6 +48,32 @@ def test_update_airports(tmp_path, monkeypatch):
     monkeypatch.setattr(server.requests, "get", fake_get)
     monkeypatch.setattr(server, "DATA_DIR", data_dir)
     monkeypatch.setattr(server, "AIRPORTS_PATH", data_dir / "airports.json")
+    monkeypatch.setattr(server, "ROUTES_DB_PATH", data_dir / "routes_dynamic.json")
+    monkeypatch.setattr(server, "STATS_PATH", data_dir / "routes_stats.json")
+
+    routes = [
+        {
+            "airline": "AL",
+            "flight_number": "123",
+            "icao24": "abc",
+            "source": "AAA",
+            "destination": "BBB",
+            "first_seen": "t",
+            "last_seen": "t",
+            "status": "Active",
+        },
+        {
+            "airline": "BAD",
+            "flight_number": "1",
+            "icao24": "zzz",
+            "source": "XXX",
+            "destination": "YYY",
+            "first_seen": "t",
+            "last_seen": "t",
+            "status": "Active",
+        },
+    ]
+    (data_dir / "routes_dynamic.json").write_text(json.dumps(routes))
 
     client = TestClient(server.app)
     resp = client.post("/update-airports")
@@ -58,5 +83,13 @@ def test_update_airports(tmp_path, monkeypatch):
     assert len(data) == 1
     assert len(data[0]["routes"]) == 1
     assert data[0]["routes"][0]["airline"] == "Test Airline"
+    assert data[0]["routes"][0]["flight_number"] == "123"
     assert data[0]["country_code"] == "AA"
     assert data[0]["country"] == "Country AA"
+
+    stats = json.loads((data_dir / "routes_stats.json").read_text())
+    assert stats["airports_active"] == 1
+    assert stats["airports_total"] == 2
+
+    info = TestClient(server.app).get("/routes-info").json()
+    assert info["active_airports"] == 1

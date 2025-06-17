@@ -58,17 +58,54 @@ docker run --rm flight_map pytest
 
 ## Data
 
-`public/airports.json` contains example data with a small set of airports and routes. Each airport entry lists its code, ISO country and human readable country name so the front-end can provide tooltips and filtering. When running the container with a volume mounted at `$DATA_DIR`, updated data will be written there. The dataset is fetched from OurAirports (for airport and country details) and OpenFlights (for routes and airline names).
+`public/airports.json` contains example data with a small set of airports and routes. Each airport entry lists its code, ISO country and human readable country name so the front-end can provide tooltips and filtering. When running the container with a volume mounted at `$DATA_DIR`, updated data will be written there. The dataset is fetched from OurAirports for airport and country details while route information comes from the flights collected via `/update-flights`.
 
 ### Updating data
 
-Run the `/update-airports` endpoint to download the latest airports from OurAirports and route information from OpenFlights. `countries.csv` resolves ISO codes to names, and airline codes are converted to readable names using `airlines.dat`:
+Run the `/update-airports` endpoint to download the latest airports from OurAirports and merge them with your collected flight database (`routes_dynamic.json`):
 
 ```bash
 curl -X POST http://localhost:8000/update-airports
 ```
 
-This downloads `airports.csv` and `countries.csv` from OurAirports plus `routes.dat` and `airlines.dat` from OpenFlights, generating `$DATA_DIR/airports.json` with airline and country names embedded for use by the front-end. Airports that have no outgoing routes are excluded from the resulting file.
+This downloads `airports.csv` and `countries.csv` from OurAirports and combines them with the data in `routes_dynamic.json`, generating `$DATA_DIR/airports.json` with country names embedded for use by the front-end. Airports that have no outgoing routes are excluded from the resulting file.
+
+### Updating live flight data
+
+Use `/update-flights` to gather active flights from the OpenSky API. Flights are tracked until they disappear from the feed, at which point a route entry is stored in `$DATA_DIR/routes_dynamic.json`:
+
+```json
+[
+  {
+    "airline": "BT",
+    "flight_number": "123",
+    "icao24": "4ca77d",
+    "source": "EVRA",
+    "destination": "EGLL",
+    "first_seen": "2025-06-10T13:45:00Z",
+    "last_seen": "2025-06-16T10:45:00Z",
+    "status": "Active"
+  }
+]
+```
+
+Statistics about the collection are written to `$DATA_DIR/routes_stats.json` and can be retrieved via `/routes-stats`.
+
+```bash
+curl -X POST http://localhost:8000/update-flights
+```
+
+The current dataset can be downloaded with:
+
+```bash
+curl http://localhost:8000/routes-db
+```
+
+For a high level summary of the collected data you can query `/routes-info`:
+
+```bash
+curl http://localhost:8000/routes-info
+```
 
 ## Deployment on Railway
 

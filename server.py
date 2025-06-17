@@ -6,13 +6,60 @@ import os
 import csv
 import json
 from pathlib import Path
+from datetime import datetime, timedelta
+from math import radians, cos, sin, asin, sqrt
+import re
 import requests
 
 DATA_DIR = Path(os.environ.get("DATA_DIR", "public"))
 DATA_DIR.mkdir(parents=True, exist_ok=True)
 AIRPORTS_PATH = DATA_DIR / "airports.json"
+ROUTES_DB_PATH = DATA_DIR / "routes_dynamic.json"
+ACTIVE_FLIGHTS_PATH = DATA_DIR / "active_flights.json"
+STATS_PATH = DATA_DIR / "routes_stats.json"
+AIRLINES_URL = "https://raw.githubusercontent.com/jpatokal/openflights/master/data/airlines.dat"
 
 app = FastAPI()
+
+
+CALLSIGN_RE = re.compile(r"^([A-Za-z]{2,3})")
+
+
+def parse_callsign(callsign: str):
+    """Return (prefix, number) from a callsign string."""
+    cs = (callsign or "").strip()
+    if not cs:
+        return "", ""
+    m = CALLSIGN_RE.match(cs)
+    if m:
+        prefix = m.group(1).upper()
+        number = cs[m.end():].strip()
+        return prefix, number
+    return "", cs
+
+
+def haversine(lat1, lon1, lat2, lon2):
+    """Return distance in km between two lat/lon points."""
+    R = 6371.0
+    dlat = radians(lat2 - lat1)
+    dlon = radians(lon2 - lon1)
+    a = sin(dlat / 2) ** 2 + cos(radians(lat1)) * cos(radians(lat2)) * sin(dlon / 2) ** 2
+    c = 2 * asin(sqrt(a))
+    return R * c
+
+
+def nearest_airport(lat, lon, airports):
+    """Return closest airport dict within 30km of given coordinates."""
+    if lat is None or lon is None:
+        return None
+    best = None
+    best_d = float("inf")
+    for ap in airports.values():
+        d = haversine(lat, lon, ap["lat"], ap["lon"])
+        if d < best_d:
+            best = ap
+            best_d = d
+    return best if best_d <= 30 else None
 
 
 @app.get("/airports.json")
@@ -23,12 +70,10 @@ def get_airports():
 
 @app.post("/update-airports")
 def update_airports():
-    """Download airport data from OurAirports and route data from OpenFlights."""
+    """Download airport data from OurAirports and build routes from collected flights."""
 
     airports_url = "https://raw.githubusercontent.com/davidmegginson/ourairports-data/master/airports.csv"
     countries_url = "https://raw.githubusercontent.com/davidmegginson/ourairports-data/master/countries.csv"
-    routes_url = "https://raw.githubusercontent.com/jpatokal/openflights/master/data/routes.dat"
-    airlines_url = "https://raw.githubusercontent.com/jpatokal/openflights/master/data/airlines.dat"
 
     # Download airports from OurAirports
     resp = requests.get(airports_url)
@@ -64,12 +109,19 @@ def update_airports():
             "routes": []
         }
 
+    # Load collected route data
+    routes = []
+    if ROUTES_DB_PATH.exists():
+        try:
+            routes = json.loads(ROUTES_DB_PATH.read_text() or "[]")
+        except json.JSONDecodeError:
+            routes = []
+
     # Build a mapping of airline codes to human readable names
-    resp = requests.get(airlines_url)
-    resp.raise_for_status()
+    resp_airlines = requests.get(AIRLINES_URL)
+    resp_airlines.raise_for_status()
     airline_names = {}
-    reader = csv.reader(resp.text.splitlines())
-    for row in reader:
+    for row in csv.reader(resp_airlines.text.splitlines()):
         try:
             name = row[1]
             iata = row[3]
@@ -81,30 +133,23 @@ def update_airports():
         if icao and icao != "\\N":
             airline_names[icao] = name
 
-    # Download routes and attach to airports
-    resp = requests.get(routes_url)
-    resp.raise_for_status()
-    reader = csv.reader(resp.text.splitlines())
+
     route_count = 0
-    for row in reader:
-        try:
-            airline_code = row[0]
-            source_code = row[2]
-            dest_code = row[4]
-            if source_code == "\\N" or dest_code == "\\N":
-                continue
-            source = airports.get(source_code)
-            dest = airports.get(dest_code)
-            if not source or not dest:
-                continue
-        except IndexError:
+    for rt in routes:
+        src = airports.get(rt.get("source"))
+        dest = airports.get(rt.get("destination"))
+        if not src or not dest:
             continue
-        source["routes"].append({
-            "from": [source["lat"], source["lon"]],
+        prefix = rt.get("airline", "")
+        number = rt.get("flight_number", "")
+        airline_name = airline_names.get(prefix, prefix)
+        src["routes"].append({
+            "from": [src["lat"], src["lon"]],
             "to": [dest["lat"], dest["lon"]],
-            "from_name": source["name"],
+            "from_name": src["name"],
             "to_name": dest["name"],
-            "airline": airline_names.get(airline_code, airline_code)
+            "airline": airline_name,
+            "flight_number": number
         })
         route_count += 1
 
@@ -115,7 +160,201 @@ def update_airports():
         json.dumps(airports_with_routes, indent=2)
     )
 
+    # Update stats file with airport counts
+    stats = {}
+    if STATS_PATH.exists():
+        try:
+            stats = json.loads(STATS_PATH.read_text() or "{}")
+        except json.JSONDecodeError:
+            stats = {}
+    stats["airports_active"] = len(airports_with_routes)
+    stats["airports_total"] = len(airports)
+    STATS_PATH.write_text(json.dumps(stats, indent=2))
+
     return {"airports": len(airports_with_routes), "routes": route_count}
+
+
+@app.post("/update-flights")
+def update_flights():
+    """Fetch active flights from OpenSky and update route database."""
+    resp = requests.get("https://opensky-network.org/api/states/all")
+    resp.raise_for_status()
+    data = resp.json()
+
+    now = datetime.utcnow().isoformat() + "Z"
+
+    # Load current active flights
+    active = {}
+    if ACTIVE_FLIGHTS_PATH.exists():
+        try:
+            active = json.loads(ACTIVE_FLIGHTS_PATH.read_text() or "{}")
+        except json.JSONDecodeError:
+            active = {}
+
+    # Load existing routes
+    routes = []
+    if ROUTES_DB_PATH.exists():
+        try:
+            routes = json.loads(ROUTES_DB_PATH.read_text() or "[]")
+        except json.JSONDecodeError:
+            routes = []
+    routes_by_key = {
+        (r.get("airline"), r.get("flight_number"), r.get("source"), r.get("destination")): r
+        for r in routes
+    }
+
+    # Load airports for geolocation
+    airports = {}
+    if AIRPORTS_PATH.exists():
+        try:
+            a_list = json.loads(AIRPORTS_PATH.read_text() or "[]")
+            airports = {a["code"]: a for a in a_list}
+        except json.JSONDecodeError:
+            airports = {}
+
+    seen = set()
+    for s in data.get("states", []):
+        icao24 = s[0]
+        callsign = s[1].strip() if s[1] else ""
+        lon = s[5]
+        lat = s[6]
+        if lat is None or lon is None:
+            continue
+        seen.add(icao24)
+        if icao24 in active:
+            af = active[icao24]
+            af["last_coord"] = [lat, lon]
+            af["last_updated"] = now
+            af["callsign"] = callsign
+        else:
+            active[icao24] = {
+                "callsign": callsign,
+                "origin_coord": [lat, lon],
+                "last_coord": [lat, lon],
+                "first_seen": now,
+                "last_updated": now,
+            }
+
+    # Handle flights that disappeared since last run
+    finished = [key for key in active.keys() if key not in seen]
+    for icao24 in finished:
+        af = active.pop(icao24)
+        prefix, number = parse_callsign(af.get("callsign", ""))
+        src = nearest_airport(*(af.get("origin_coord") or (None, None)), airports)
+        dest = nearest_airport(*(af.get("last_coord") or (None, None)), airports)
+        if not src or not dest:
+            continue
+        key = (prefix, number, src["code"], dest["code"])
+        route = routes_by_key.get(key)
+        if route:
+            route["last_seen"] = now
+            route["icao24"] = icao24
+        else:
+            route = {
+                "airline": prefix,
+                "flight_number": number,
+                "icao24": icao24,
+                "source": src["code"],
+                "destination": dest["code"],
+                "first_seen": now,
+                "last_seen": now,
+                "status": "Active",
+            }
+            routes.append(route)
+            routes_by_key[key] = route
+
+    # Update status and prune old routes
+    cleaned = []
+    now_dt = datetime.utcnow()
+    for r in routes:
+        try:
+            last_dt = datetime.fromisoformat(r["last_seen"].replace("Z", ""))
+        except Exception:
+            last_dt = now_dt
+        if now_dt - last_dt > timedelta(days=365):
+            continue
+        r["status"] = "Active" if now_dt - last_dt <= timedelta(days=21) else "Not Active"
+        cleaned.append(r)
+    routes = cleaned
+
+    ACTIVE_FLIGHTS_PATH.write_text(json.dumps(active, indent=2))
+    ROUTES_DB_PATH.write_text(json.dumps(routes, indent=2))
+
+    stats = {}
+    if STATS_PATH.exists():
+        try:
+            stats = json.loads(STATS_PATH.read_text() or "{}")
+        except json.JSONDecodeError:
+            stats = {}
+    stats.update({
+        "routes": len(routes),
+        "last_run": now,
+        "active_planes": len(active),
+    })
+    STATS_PATH.write_text(json.dumps(stats, indent=2))
+    return {"routes": len(routes), "active": len(active), "last_run": now}
+
+
+@app.get("/routes-db")
+def get_routes_db():
+    """Return the dynamically built routes database."""
+    return FileResponse(ROUTES_DB_PATH)
+
+
+@app.get("/routes-stats")
+def get_routes_stats():
+    """Return statistics about the routes database."""
+    if STATS_PATH.exists():
+        return json.loads(STATS_PATH.read_text())
+    return {"routes": 0, "last_run": None}
+
+
+@app.get("/routes-info")
+def get_routes_info():
+    """Return summary statistics about airports and routes."""
+    stats = {}
+    if STATS_PATH.exists():
+        try:
+            stats = json.loads(STATS_PATH.read_text() or "{}")
+        except json.JSONDecodeError:
+            stats = {}
+
+    routes = []
+    if ROUTES_DB_PATH.exists():
+        try:
+            routes = json.loads(ROUTES_DB_PATH.read_text() or "[]")
+        except json.JSONDecodeError:
+            routes = []
+
+    airports_list = []
+    if AIRPORTS_PATH.exists():
+        try:
+            airports_list = json.loads(AIRPORTS_PATH.read_text() or "[]")
+        except json.JSONDecodeError:
+            airports_list = []
+
+    now = datetime.utcnow()
+    recovered_hour = 0
+    recovered_day = 0
+    for rt in routes:
+        try:
+            last = datetime.fromisoformat(rt.get("last_seen", "").replace("Z", ""))
+        except Exception:
+            continue
+        if now - last <= timedelta(hours=1):
+            recovered_hour += 1
+        if now - last <= timedelta(hours=24):
+            recovered_day += 1
+
+    return {
+        "active_airports": len(airports_list),
+        "total_airports": stats.get("airports_total", len(airports_list)),
+        "routes": len(routes),
+        "last_update": stats.get("last_run"),
+        "active_planes": stats.get("active_planes", 0),
+        "recovered_last_hour": recovered_hour,
+        "recovered_last_24h": recovered_day,
+    }
 
 # Serve static files from the public directory (mounted last so API routes take precedence)
 app.mount("/", StaticFiles(directory="public", html=True), name="static")
