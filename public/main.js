@@ -16,6 +16,11 @@ const routesPane = map.createPane('routes');
 routesPane.style.zIndex = 200;
 const markers = [];
 const activeFlightMarkers = [];
+const planeIcon = L.icon({
+  iconUrl: 'plane.svg',
+  iconSize: [8, 8],
+  iconAnchor: [4, 4],
+});
 const minRadius = 8;
 const maxRadius = 35;
 const airlineColors = {};
@@ -112,20 +117,24 @@ function loadActiveFlights() {
   fetch('active-flights')
     .then(r => r.json())
     .then(data => {
+      activeFlightMarkers.forEach(m => map.removeLayer(m));
+      activeFlightMarkers.length = 0;
+      const now = Date.now();
       Object.values(data || {}).forEach(f => {
         if (!Array.isArray(f.last_coord)) return;
         const [lat, lon] = f.last_coord;
         if (lat == null || lon == null) return;
         const [, number] = parseCallsign(f.callsign);
-        const marker = L.circleMarker([lat, lon], {
-          radius: 4,
-          color: 'orange',
-          fillColor: 'orange',
-          fillOpacity: 1,
-          weight: 1,
-        })
+        const prefix = f.airline || '';
+        const minutes = f.first_seen ? Math.round((now - Date.parse(f.first_seen)) / 60000) : 0;
+        const parts = [];
+        if (number || f.callsign) parts.push(number || f.callsign);
+        if (prefix) parts.push(prefix);
+        if (minutes) parts.push(minutes + 'm');
+        if (f.origin) parts.push('from ' + f.origin);
+        const marker = L.marker([lat, lon], { icon: planeIcon })
           .addTo(map)
-          .bindTooltip(number || f.callsign || '');
+          .bindTooltip(parts.join(' | '));
         activeFlightMarkers.push(marker);
       });
     });

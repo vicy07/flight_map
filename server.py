@@ -223,14 +223,22 @@ def update_flights():
         if lat is None or lon is None:
             continue
         seen.add(icao24)
+        prefix, number = parse_callsign(callsign)
         if icao24 in active:
             af = active[icao24]
             af["last_coord"] = [lat, lon]
             af["last_updated"] = now
             af["callsign"] = callsign
+            af["airline"] = prefix
+            af["flight_number"] = number
         else:
+            origin_ap = nearest_airport(lat, lon, airports)
             active[icao24] = {
                 "callsign": callsign,
+                "airline": prefix,
+                "flight_number": number,
+                "origin": origin_ap["code"] if origin_ap else None,
+                "origin_name": origin_ap["name"] if origin_ap else None,
                 "origin_coord": [lat, lon],
                 "last_coord": [lat, lon],
                 "first_seen": now,
