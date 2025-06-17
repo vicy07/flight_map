@@ -29,6 +29,8 @@ const colorPalette = [
   '#000075', '#808080'
 ];
 
+const airlineNameToCode = {};
+
 const planeIcon = L.icon({
   iconUrl: 'plane.svg',
   iconSize: [8, 8],
@@ -122,8 +124,9 @@ function loadActiveFlights() {
       activeFlightMarkers.forEach(m => activeFlightsLayer.removeLayer(m));
       activeFlightMarkers.length = 0;
       const airlineFilter = filterSelect.value;
+      const filterCode = airlineNameToCode[airlineFilter] || airlineFilter;
       Object.values(data || {}).forEach(f => {
-        if (airlineFilter && f.airline !== airlineFilter) return;
+        if (airlineFilter && f.airline !== filterCode) return;
         if (!Array.isArray(f.last_coord)) return;
         const [lat, lon] = f.last_coord;
         if (lat == null || lon == null) return;
@@ -199,7 +202,12 @@ fetch('airports.json')
     const countriesMap = new Map();
 
     airportsData.forEach(a => {
-      a.routes.forEach(r => airlinesSet.add(r.airline));
+      a.routes.forEach(r => {
+        airlinesSet.add(r.airline);
+        if (r.airline && r.airline_code) {
+          airlineNameToCode[r.airline] = r.airline_code;
+        }
+      });
       countriesMap.set(a.country_code, a.country);
 
       const marker = L.circleMarker([a.lat, a.lon], {
