@@ -19,16 +19,13 @@ def fake_response(data):
 
 
 def test_update_flights(tmp_path, monkeypatch):
-    states = {
-        "time": 1,
-        "states": [
-            ["abc", "AL123 ", "", 0, 0, 10.0, 20.0],
-            ["def", "RYR456 ", "", 0, 0, 30.0, 40.0],
-        ],
-    }
+    states1 = {"states": [["abc", "AL123 ", "", 0, 0, 20.0, 10.0], ["def", "RYR456 ", "", 0, 0, 40.0, 30.0]]}
+    states2 = {"states": [["abc", "AL123 ", "", 0, 0, 40.0, 30.0], ["def", "RYR456 ", "", 0, 0, 40.0, 30.0]]}
+    states3 = {"states": [["def", "RYR456 ", "", 0, 0, 40.0, 30.0]]}
+    responses = iter([states1, states2, states3])
 
     def fake_get(url):
-        return fake_response(states)
+        return fake_response(next(responses))
 
     monkeypatch.chdir(tmp_path)
     data_dir = tmp_path / "data"
@@ -37,24 +34,33 @@ def test_update_flights(tmp_path, monkeypatch):
     monkeypatch.setattr(server.requests, "get", fake_get)
     monkeypatch.setattr(server, "DATA_DIR", data_dir)
     monkeypatch.setattr(server, "ROUTES_DB_PATH", data_dir / "routes_dynamic.json")
+    monkeypatch.setattr(server, "ACTIVE_FLIGHTS_PATH", data_dir / "active_flights.json")
     monkeypatch.setattr(server, "STATS_PATH", data_dir / "routes_stats.json")
-
+    monkeypatch.setattr(server, "AIRPORTS_PATH", data_dir / "airports.json")
+    Path(server.AIRPORTS_PATH).write_text(
+        json.dumps([
+            {"code": "AAA", "name": "A", "lat": 10, "lon": 20},
+            {"code": "BBB", "name": "B", "lat": 30, "lon": 40},
+        ])
+    )
+    
     client = TestClient(server.app)
+    client.post("/update-flights")
+    client.post("/update-flights")
     resp = client.post("/update-flights")
     assert resp.status_code == 200
 
-    data = json.loads((data_dir / "routes_dynamic.json").read_text())
-    assert len(data) == 2
-    assert data[0]["airline"] == "AL"
-    assert data[0]["flight_number"] == "123"
-    assert data[1]["airline"] == "RYR"
-    assert data[1]["flight_number"] == "456"
+    routes = json.loads((data_dir / "routes_dynamic.json").read_text())
+    assert len(routes) == 1
+    r = routes[0]
+    assert r["airline"] == "AL"
+    assert r["flight_number"] == "123"
+    assert r["source"] == "AAA"
+    assert r["destination"] == "BBB"
+    assert r["status"] == "Active"
     stats = json.loads((data_dir / "routes_stats.json").read_text())
-    assert stats["routes"] == 2
+    assert stats["routes"] == 1
 
-    resp = client.get("/routes-db")
-    assert resp.status_code == 200
-
-    resp = client.get("/routes-stats")
-    assert resp.json()["routes"] == 2
+    assert TestClient(server.app).get("/routes-db").status_code == 200
+    assert TestClient(server.app).get("/routes-stats").json()["routes"] == 1
 

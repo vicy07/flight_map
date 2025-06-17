@@ -72,7 +72,24 @@ This downloads `airports.csv` and `countries.csv` from OurAirports and combines 
 
 ### Updating live flight data
 
-Use `/update-flights` to gather active flights from the OpenSky API. A simplified list of flights is stored in `$DATA_DIR/routes_dynamic.json`. Each entry records the extracted airline code and flight number from the callsign. Statistics about the collection are written to `$DATA_DIR/routes_stats.json` and can be retrieved via `/routes-stats`.
+Use `/update-flights` to gather active flights from the OpenSky API. Flights are tracked until they disappear from the feed, at which point a route entry is stored in `$DATA_DIR/routes_dynamic.json`:
+
+```json
+[
+  {
+    "airline": "BT",
+    "flight_number": "123",
+    "icao24": "4ca77d",
+    "source": "EVRA",
+    "destination": "EGLL",
+    "first_seen": "2025-06-10T13:45:00Z",
+    "last_seen": "2025-06-16T10:45:00Z",
+    "status": "Active"
+  }
+]
+```
+
+Statistics about the collection are written to `$DATA_DIR/routes_stats.json` and can be retrieved via `/routes-stats`.
 
 ```bash
 curl -X POST http://localhost:8000/update-flights

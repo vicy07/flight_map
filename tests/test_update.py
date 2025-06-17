@@ -50,21 +50,29 @@ def test_update_airports(tmp_path, monkeypatch):
     monkeypatch.setattr(server, "AIRPORTS_PATH", data_dir / "airports.json")
     monkeypatch.setattr(server, "ROUTES_DB_PATH", data_dir / "routes_dynamic.json")
 
-    flights = [
+    routes = [
         {
+            "airline": "AL",
+            "flight_number": "123",
             "icao24": "abc",
-            "callsign": "AL123",
-            "origin_coord": [10, 20],
-            "last_coord": [30, 40],
+            "source": "AAA",
+            "destination": "BBB",
+            "first_seen": "t",
+            "last_seen": "t",
+            "status": "Active",
         },
         {
+            "airline": "BAD",
+            "flight_number": "1",
             "icao24": "zzz",
-            "callsign": "BAD",
-            "origin_coord": [None, None],
-            "last_coord": [None, None],
-        }
+            "source": "XXX",
+            "destination": "YYY",
+            "first_seen": "t",
+            "last_seen": "t",
+            "status": "Active",
+        },
     ]
-    (data_dir / "routes_dynamic.json").write_text(json.dumps(flights))
+    (data_dir / "routes_dynamic.json").write_text(json.dumps(routes))
 
     client = TestClient(server.app)
     resp = client.post("/update-airports")

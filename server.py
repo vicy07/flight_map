@@ -6,7 +6,7 @@ import os
 import csv
 import json
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, timedelta
 from math import radians, cos, sin, asin, sqrt
 import re
 import requests
@@ -15,6 +15,7 @@ DATA_DIR = Path(os.environ.get("DATA_DIR", "public"))
 DATA_DIR.mkdir(parents=True, exist_ok=True)
 AIRPORTS_PATH = DATA_DIR / "airports.json"
 ROUTES_DB_PATH = DATA_DIR / "routes_dynamic.json"
+ACTIVE_FLIGHTS_PATH = DATA_DIR / "active_flights.json"
 STATS_PATH = DATA_DIR / "routes_stats.json"
 AIRLINES_URL = "https://raw.githubusercontent.com/jpatokal/openflights/master/data/airlines.dat"
 
@@ -35,6 +36,30 @@ def parse_callsign(callsign: str):
         number = cs[m.end():].strip()
         return prefix, number
     return "", cs
+
+
+def haversine(lat1, lon1, lat2, lon2):
+    """Return distance in km between two lat/lon points."""
+    R = 6371.0
+    dlat = radians(lat2 - lat1)
+    dlon = radians(lon2 - lon1)
+    a = sin(dlat / 2) ** 2 + cos(radians(lat1)) * cos(radians(lat2)) * sin(dlon / 2) ** 2
+    c = 2 * asin(sqrt(a))
+    return R * c
+
+
+def nearest_airport(lat, lon, airports):
+    """Return closest airport dict within 30km of given coordinates."""
+    if lat is None or lon is None:
+        return None
+    best = None
+    best_d = float("inf")
+    for ap in airports.values():
+        d = haversine(lat, lon, ap["lat"], ap["lon"])
+        if d < best_d:
+            best = ap
+            best_d = d
+    return best if best_d <= 30 else None
 
 
 @app.get("/airports.json")
@@ -84,13 +109,13 @@ def update_airports():
             "routes": []
         }
 
-    # Load collected flight data and map to nearest airports
-    flights = []
+    # Load collected route data
+    routes = []
     if ROUTES_DB_PATH.exists():
         try:
-            flights = json.loads(ROUTES_DB_PATH.read_text() or "[]")
+            routes = json.loads(ROUTES_DB_PATH.read_text() or "[]")
         except json.JSONDecodeError:
-            flights = []
+            routes = []
 
     # Build a mapping of airline codes to human readable names
     resp_airlines = requests.get(AIRLINES_URL)
@@ -108,36 +133,15 @@ def update_airports():
         if icao and icao != "\\N":
             airline_names[icao] = name
 
-    def haversine(lat1, lon1, lat2, lon2):
-        R = 6371.0
-        dlat = radians(lat2 - lat1)
-        dlon = radians(lon2 - lon1)
-        a = sin(dlat / 2) ** 2 + cos(radians(lat1)) * cos(radians(lat2)) * sin(dlon / 2) ** 2
-        c = 2 * asin(sqrt(a))
-        return R * c
-
-    def nearest_airport(lat, lon):
-        if lat is None or lon is None:
-            return None
-        best = None
-        best_d = float("inf")
-        for ap in airports.values():
-            d = haversine(lat, lon, ap["lat"], ap["lon"])
-            if d < best_d:
-                best = ap
-                best_d = d
-        return best if best_d <= 30 else None
 
     route_count = 0
-    for fl in flights:
-        src = nearest_airport(*fl.get("origin_coord", (None, None)))
-        dest = nearest_airport(*fl.get("last_coord", (None, None)))
+    for rt in routes:
+        src = airports.get(rt.get("source"))
+        dest = airports.get(rt.get("destination"))
         if not src or not dest:
             continue
-        prefix = fl.get("airline")
-        number = fl.get("flight_number")
-        if not prefix:
-            prefix, number = parse_callsign(fl.get("callsign", ""))
+        prefix = rt.get("airline", "")
+        number = rt.get("flight_number", "")
         airline_name = airline_names.get(prefix, prefix)
         src["routes"].append({
             "from": [src["lat"], src["lon"]],
@@ -161,49 +165,111 @@ def update_airports():
 
 @app.post("/update-flights")
 def update_flights():
-    """Fetch active flights from OpenSky and store simplified data."""
+    """Fetch active flights from OpenSky and update route database."""
     resp = requests.get("https://opensky-network.org/api/states/all")
     resp.raise_for_status()
     data = resp.json()
 
     now = datetime.utcnow().isoformat() + "Z"
 
-    flights = {}
+    # Load current active flights
+    active = {}
+    if ACTIVE_FLIGHTS_PATH.exists():
+        try:
+            active = json.loads(ACTIVE_FLIGHTS_PATH.read_text() or "{}")
+        except json.JSONDecodeError:
+            active = {}
+
+    # Load existing routes
+    routes = []
     if ROUTES_DB_PATH.exists():
         try:
-            for f in json.loads(ROUTES_DB_PATH.read_text() or "[]"):
-                flights[f["icao24"]] = f
+            routes = json.loads(ROUTES_DB_PATH.read_text() or "[]")
         except json.JSONDecodeError:
-            pass
+            routes = []
+    routes_by_key = {
+        (r.get("airline"), r.get("flight_number"), r.get("source"), r.get("destination")): r
+        for r in routes
+    }
 
+    # Load airports for geolocation
+    airports = {}
+    if AIRPORTS_PATH.exists():
+        try:
+            a_list = json.loads(AIRPORTS_PATH.read_text() or "[]")
+            airports = {a["code"]: a for a in a_list}
+        except json.JSONDecodeError:
+            airports = {}
+
+    seen = set()
     for s in data.get("states", []):
         icao24 = s[0]
         callsign = s[1].strip() if s[1] else ""
         lon = s[5]
         lat = s[6]
-        if icao24 in flights:
-            flights[icao24]["last_coord"] = [lat, lon]
-            flights[icao24]["last_updated"] = now
-            flights[icao24]["callsign"] = callsign
-            prefix, number = parse_callsign(callsign)
-            flights[icao24]["airline"] = prefix
-            flights[icao24]["flight_number"] = number
+        if lat is None or lon is None:
+            continue
+        seen.add(icao24)
+        if icao24 in active:
+            af = active[icao24]
+            af["last_coord"] = [lat, lon]
+            af["last_updated"] = now
+            af["callsign"] = callsign
         else:
-            prefix, number = parse_callsign(callsign)
-            flights[icao24] = {
-                "icao24": icao24,
+            active[icao24] = {
                 "callsign": callsign,
-                "airline": prefix,
-                "flight_number": number,
                 "origin_coord": [lat, lon],
                 "last_coord": [lat, lon],
                 "first_seen": now,
                 "last_updated": now,
             }
 
-    ROUTES_DB_PATH.write_text(json.dumps(list(flights.values()), indent=2))
-    STATS_PATH.write_text(json.dumps({"routes": len(flights), "last_run": now}))
-    return {"routes": len(flights), "last_run": now}
+    # Handle flights that disappeared since last run
+    finished = [key for key in active.keys() if key not in seen]
+    for icao24 in finished:
+        af = active.pop(icao24)
+        prefix, number = parse_callsign(af.get("callsign", ""))
+        src = nearest_airport(*(af.get("origin_coord") or (None, None)), airports)
+        dest = nearest_airport(*(af.get("last_coord") or (None, None)), airports)
+        if not src or not dest:
+            continue
+        key = (prefix, number, src["code"], dest["code"])
+        route = routes_by_key.get(key)
+        if route:
+            route["last_seen"] = now
+            route["icao24"] = icao24
+        else:
+            route = {
+                "airline": prefix,
+                "flight_number": number,
+                "icao24": icao24,
+                "source": src["code"],
+                "destination": dest["code"],
+                "first_seen": now,
+                "last_seen": now,
+                "status": "Active",
+            }
+            routes.append(route)
+            routes_by_key[key] = route
+
+    # Update status and prune old routes
+    cleaned = []
+    now_dt = datetime.utcnow()
+    for r in routes:
+        try:
+            last_dt = datetime.fromisoformat(r["last_seen"].replace("Z", ""))
+        except Exception:
+            last_dt = now_dt
+        if now_dt - last_dt > timedelta(days=365):
+            continue
+        r["status"] = "Active" if now_dt - last_dt <= timedelta(days=21) else "Not Active"
+        cleaned.append(r)
+    routes = cleaned
+
+    ACTIVE_FLIGHTS_PATH.write_text(json.dumps(active, indent=2))
+    ROUTES_DB_PATH.write_text(json.dumps(routes, indent=2))
+    STATS_PATH.write_text(json.dumps({"routes": len(routes), "last_run": now}))
+    return {"routes": len(routes), "active": len(active), "last_run": now}
 
 
 @app.get("/routes-db")
