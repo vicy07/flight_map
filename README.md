@@ -78,7 +78,7 @@ This downloads `airports.csv` and `countries.csv` from OurAirports and combines 
 
 ### Updating live flight data
 
-Use `/update-flights` to gather active flights from the OpenSky API. Flights are tracked until they disappear from the feed, at which point a route entry is stored in `$DATA_DIR/routes_dynamic.json`:
+Use `/update-flights` to gather active flights from the OpenSky API. Flights are tracked until they disappear from the feed, at which point a route entry is stored in `$DATA_DIR/routes_dynamic.json`. Routes where the origin and destination resolve to the same airport are ignored:
 
 ```json
 [
