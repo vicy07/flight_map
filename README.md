@@ -75,14 +75,14 @@ When `DATA_DIR` is set, the API writes its working datasets to that directory:
 
 * `airports.json` – filtered airports for the UI.
 * `airports_full.json` – full airport list.
-* `routes_dynamic.json` – recovered routes with a `status` field (`Active` for recent flights, otherwise `Not Active`). Example:
+* `routes_dynamic.json` – recovered routes with a `status` field (`Active` for recent flights, otherwise `Not Active`). Routes older than 31 days are removed. Example:
 
   ```json
   [
     {"airline": "BT", "flight_number": "123", "source": "EVRA", "destination": "EGLL", "status": "Active"}
   ]
   ```
-* `active_flights.json` – currently tracked flights, e.g. `{"abc": {"callsign": "AL123", "last_coord": [10, 20]}}`.
+* `active_planes.json` – currently tracked flights, e.g. `{"abc": {"callsign": "AL123", "last_coord": [10, 20]}}`.
 * `routes_stats.json` – statistics about collected routes.
 
 ### Updating data
