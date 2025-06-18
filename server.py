@@ -231,8 +231,8 @@ def update_airports():
     return {"airports": len(airports_with_routes), "routes": route_count}
 
 
-@app.post("/update-flights")
-def update_flights():
+@app.post("/update-routes")
+def update_routes():
     """Fetch active flights from OpenSky and update route database."""
     resp = requests.get("https://opensky-network.org/api/states/all")
     resp.raise_for_status()
@@ -363,6 +363,14 @@ def update_flights():
     STATS_PATH.write_text(json.dumps(stats, indent=2))
     update_airports()
     return {"routes": len(routes), "active": len(active), "last_run": now}
+
+
+@app.get("/active-planes")
+def get_active_planes():
+    """Return the currently tracked active flights."""
+    if ACTIVE_FLIGHTS_PATH.exists():
+        return FileResponse(ACTIVE_FLIGHTS_PATH)
+    return {}
 
 
 

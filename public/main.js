@@ -134,7 +134,7 @@ function toggleRouteSelection(line, route) {
 }
 
 function loadActiveFlights() {
-  fetch('active-flights')
+  fetch('active-planes')
     .then(r => r.json())
     .then(data => {
       activeFlightMarkers.forEach(m => activeFlightsLayer.removeLayer(m));

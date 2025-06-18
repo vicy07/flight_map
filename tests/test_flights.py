@@ -18,7 +18,7 @@ def fake_response(data):
     return mock
 
 
-def test_update_flights(tmp_path, monkeypatch):
+def test_update_routes(tmp_path, monkeypatch):
     states1 = {"states": [["abc", "AL123 ", "", 0, 0, 20.0, 10.0], ["def", "RYR456 ", "", 0, 0, 40.0, 30.0]]}
     states2 = {"states": [["abc", "AL123 ", "", 0, 0, 40.0, 30.0], ["def", "RYR456 ", "", 0, 0, 40.0, 30.0]]}
     states3 = {"states": [["def", "RYR456 ", "", 0, 0, 40.0, 30.0]]}
@@ -49,9 +49,9 @@ def test_update_flights(tmp_path, monkeypatch):
     server.build_airport_tree(airports)
     
     client = TestClient(server.app)
-    client.post("/update-flights")
-    client.post("/update-flights")
-    resp = client.post("/update-flights")
+    client.post("/update-routes")
+    client.post("/update-routes")
+    resp = client.post("/update-routes")
     assert resp.status_code == 200
 
     routes = json.loads((data_dir / "routes_dynamic.json").read_text())
@@ -73,7 +73,7 @@ def test_update_flights(tmp_path, monkeypatch):
 
 
 
-def test_update_flights_missing_destination(tmp_path, monkeypatch):
+def test_update_routes_missing_destination(tmp_path, monkeypatch):
     """Flight ending far from any airport should not create a route."""
     states1 = {
         "states": [
@@ -115,9 +115,9 @@ def test_update_flights_missing_destination(tmp_path, monkeypatch):
     server.build_airport_tree(airports)
 
     client = TestClient(server.app)
-    client.post("/update-flights")
-    client.post("/update-flights")
-    resp = client.post("/update-flights")
+    client.post("/update-routes")
+    client.post("/update-routes")
+    resp = client.post("/update-routes")
     assert resp.status_code == 200
 
     routes = json.loads((data_dir / "routes_dynamic.json").read_text())
@@ -133,6 +133,22 @@ def test_update_flights_missing_destination(tmp_path, monkeypatch):
     info = TestClient(server.app).get("/info").json()
     assert info["routes"] == 1
     assert info["active_planes"] == 0
+
+
+def test_get_active_planes(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    data_dir = tmp_path / "data"
+    data_dir.mkdir()
+    (tmp_path / "public").mkdir()
+    monkeypatch.setattr(server, "DATA_DIR", data_dir)
+    monkeypatch.setattr(server, "ACTIVE_FLIGHTS_PATH", data_dir / "active_flights.json")
+    active = {"abc": {"callsign": "AL123", "last_coord": [10, 20]}}
+    (data_dir / "active_flights.json").write_text(json.dumps(active))
+
+    client = TestClient(server.app)
+    resp = client.get("/active-planes")
+    assert resp.status_code == 200
+    assert resp.json() == active
 
 
 
