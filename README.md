@@ -22,6 +22,7 @@ Active flights appear using small plane icons about the size of a circle with
 radius&nbsp;4. Hover a plane to see its flight code, airline, time in the air
 and origin airport. Enable the **Show Planes** checkbox to load these markers;
 when an airline filter is selected only planes from that carrier are shown.
+Plane positions update in place so enabling planes won't redraw every marker on each refresh.
 
 ## Development
 
