@@ -20,7 +20,7 @@ DATA_DIR.mkdir(parents=True, exist_ok=True)
 AIRPORTS_PATH = DATA_DIR / "airports.json"  # filtered for UI
 AIRPORTS_FULL_PATH = DATA_DIR / "airports_full.json"
 ROUTES_DB_PATH = DATA_DIR / "routes_dynamic.json"
-ACTIVE_FLIGHTS_PATH = DATA_DIR / "active_flights.json"
+ACTIVE_PLANES_PATH = DATA_DIR / "active_planes.json"
 STATS_PATH = DATA_DIR / "routes_stats.json"
 AIRLINES_URL = "https://raw.githubusercontent.com/jpatokal/openflights/master/data/airlines.dat"
 
@@ -231,8 +231,8 @@ def update_airports():
     return {"airports": len(airports_with_routes), "routes": route_count}
 
 
-@app.post("/update-flights")
-def update_flights():
+@app.post("/update-routes")
+def update_routes():
     """Fetch active flights from OpenSky and update route database."""
     resp = requests.get("https://opensky-network.org/api/states/all")
     resp.raise_for_status()
@@ -242,9 +242,9 @@ def update_flights():
 
     # Load current active flights
     active = {}
-    if ACTIVE_FLIGHTS_PATH.exists():
+    if ACTIVE_PLANES_PATH.exists():
         try:
-            active = json.loads(ACTIVE_FLIGHTS_PATH.read_text() or "{}")
+            active = json.loads(ACTIVE_PLANES_PATH.read_text() or "{}")
         except json.JSONDecodeError:
             active = {}
 
@@ -340,13 +340,13 @@ def update_flights():
             last_dt = datetime.fromisoformat(r["last_seen"].replace("Z", ""))
         except Exception:
             last_dt = now_dt
-        if now_dt - last_dt > timedelta(days=365):
+        if now_dt - last_dt > timedelta(days=31):
             continue
         r["status"] = "Active" if now_dt - last_dt <= timedelta(days=21) else "Not Active"
         cleaned.append(r)
     routes = cleaned
 
-    ACTIVE_FLIGHTS_PATH.write_text(json.dumps(active, indent=2))
+    ACTIVE_PLANES_PATH.write_text(json.dumps(active, indent=2))
     ROUTES_DB_PATH.write_text(json.dumps(routes, indent=2))
 
     stats = {}
@@ -365,18 +365,15 @@ def update_flights():
     return {"routes": len(routes), "active": len(active), "last_run": now}
 
 
-@app.get("/active-flights")
-def get_active_flights():
+@app.get("/active-planes")
+def get_active_planes():
     """Return the currently tracked active flights."""
-    if ACTIVE_FLIGHTS_PATH.exists():
-        return FileResponse(ACTIVE_FLIGHTS_PATH)
+    if ACTIVE_PLANES_PATH.exists():
+        return FileResponse(ACTIVE_PLANES_PATH)
     return {}
 
 
-@app.get("/routes-db")
-def get_routes_db():
-    """Return the dynamically built routes database."""
-    return FileResponse(ROUTES_DB_PATH)
+
 
 
 @app.get("/info")

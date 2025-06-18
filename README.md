@@ -62,12 +62,28 @@ docker run --rm flight_map pytest
 
 ## Data
 
-`public/airports.json` contains example data with a small set of airports and routes. Each airport entry lists its code, ISO country and human readable country name so the front-end can provide tooltips and filtering. When running the container with a volume mounted at `$DATA_DIR`, updated data will be written there. The dataset is fetched from OurAirports for airport and country details while route information comes from the flights collected via `/update-flights`.
+`public/airports.json` contains example data with a small set of airports and routes. Each airport entry lists its code, ISO country and human readable country name so the front-end can provide tooltips and filtering. When running the container with a volume mounted at `$DATA_DIR`, updated data will be written there. The dataset is fetched from OurAirports for airport and country details while route information comes from the flights collected via `/update-routes`.
 
 Two airport files are produced when running `update-airports`:
 
 * `airports.json` – only airports that have routes; used by the front-end.
 * `airports_full.json` – the complete list of airports used internally for matching flights to the nearest airport.
+
+### `/data` contents
+
+When `DATA_DIR` is set, the API writes its working datasets to that directory:
+
+* `airports.json` – filtered airports for the UI.
+* `airports_full.json` – full airport list.
+* `routes_dynamic.json` – recovered routes with a `status` field (`Active` for recent flights, otherwise `Not Active`). Routes older than 31 days are removed. Example:
+
+  ```json
+  [
+    {"airline": "BT", "flight_number": "123", "source": "EVRA", "destination": "EGLL", "status": "Active"}
+  ]
+  ```
+* `active_planes.json` – currently tracked flights, e.g. `{"abc": {"callsign": "AL123", "last_coord": [10, 20]}}`.
+* `routes_stats.json` – statistics about collected routes.
 
 ### Updating data
 
@@ -87,7 +103,7 @@ This downloads `airports.csv` and `countries.csv` from OurAirports and combines 
 
 ### Updating live flight data
 
-Use `/update-flights` to gather active flights from the OpenSky API. Flights are tracked until they disappear from the feed, at which point a route entry is stored in `$DATA_DIR/routes_dynamic.json`. Routes where the origin and destination resolve to the same airport are ignored:
+Use `/update-routes` to gather active flights from the OpenSky API. Flights are tracked until they disappear from the feed, at which point a route entry is stored in `$DATA_DIR/routes_dynamic.json`. Routes where the origin and destination resolve to the same airport are ignored:
 
 ```json
 [
@@ -107,13 +123,7 @@ Use `/update-flights` to gather active flights from the OpenSky API. Flights are
 Statistics about the collection are written to `$DATA_DIR/routes_stats.json`.
 
 ```bash
-curl -X POST http://localhost:8000/update-flights
-```
-
-The current dataset can be downloaded with:
-
-```bash
-curl http://localhost:8000/routes-db
+curl -X POST http://localhost:8000/update-routes
 ```
 
 For a high level summary of the collected data you can query `/info`:
@@ -122,11 +132,12 @@ For a high level summary of the collected data you can query `/info`:
 curl http://localhost:8000/info
 ```
 
-The live positions being tracked can also be retrieved via `/active-flights`:
+The live flights currently being tracked can be retrieved via `/active-planes`:
 
 ```bash
-curl http://localhost:8000/active-flights
+curl http://localhost:8000/active-planes
 ```
+
 
 ## Deployment on Railway
 
