@@ -69,6 +69,22 @@ Two airport files are produced when running `update-airports`:
 * `airports.json` – only airports that have routes; used by the front-end.
 * `airports_full.json` – the complete list of airports used internally for matching flights to the nearest airport.
 
+### `/data` contents
+
+When `DATA_DIR` is set, the API writes its working datasets to that directory:
+
+* `airports.json` – filtered airports for the UI.
+* `airports_full.json` – full airport list.
+* `routes_dynamic.json` – recovered routes. Example:
+
+  ```json
+  [
+    {"airline": "BT", "flight_number": "123", "source": "EVRA", "destination": "EGLL"}
+  ]
+  ```
+* `active_flights.json` – currently tracked flights, e.g. `{"abc": {"callsign": "AL123", "last_coord": [10, 20]}}`.
+* `routes_stats.json` – statistics about collected routes.
+
 ### Updating data
 
 Run the `/update-airports` endpoint to download the latest airports from OurAirports and merge them with your collected flight database (`routes_dynamic.json`):
@@ -110,23 +126,12 @@ Statistics about the collection are written to `$DATA_DIR/routes_stats.json`.
 curl -X POST http://localhost:8000/update-flights
 ```
 
-The current dataset can be downloaded with:
-
-```bash
-curl http://localhost:8000/routes-db
-```
-
 For a high level summary of the collected data you can query `/info`:
 
 ```bash
 curl http://localhost:8000/info
 ```
 
-The live positions being tracked can also be retrieved via `/active-flights`:
-
-```bash
-curl http://localhost:8000/active-flights
-```
 
 ## Deployment on Railway
 
