@@ -37,6 +37,9 @@ const planeIcon = L.icon({
   iconAnchor: [4, 4],
 });
 
+const statsEl = document.getElementById('stats');
+let infoStats = {};
+
 function getAirlineColor(code) {
   if (!airlineColors[code]) {
     const idx = Object.keys(airlineColors).length % colorPalette.length;
@@ -57,6 +60,18 @@ function updatePathDisplay() {
   });
   pathEl.textContent = parts.join(' => ');
   resetBtn.style.display = selectedRoutes.length ? 'inline' : 'none';
+}
+
+function updateStatsDisplay() {
+  const visibleAirports = markers.filter(m => map.hasLayer(m.marker)).length;
+  const totalAirports = infoStats.active_airports || airportsData.length || 0;
+  const visiblePlanes = planeToggle.checked ? activeFlightMarkers.length : 0;
+  const totalPlanes = infoStats.active_planes || 0;
+  const routes = infoStats.routes || 0;
+  const recent = infoStats.recovered_last_hour || 0;
+  statsEl.textContent = `Airports: ${visibleAirports}/${totalAirports} | ` +
+    `Planes: ${visiblePlanes}/${totalPlanes} | ` +
+    `Routes: ${routes} (last hr: ${recent})`;
 }
 
 function applyFilter() {
@@ -101,6 +116,7 @@ function applyFilter() {
     }
     loadActiveFlights();
   }
+  updateStatsDisplay();
 }
 
 function toggleRouteSelection(line, route) {
@@ -150,6 +166,7 @@ function loadActiveFlights() {
           .bindTooltip(info);
         activeFlightMarkers.push(marker);
       });
+      updateStatsDisplay();
     });
 }
 
@@ -177,6 +194,7 @@ planeToggle.addEventListener('change', () => {
     activeFlightMarkers.length = 0;
     map.removeLayer(activeFlightsLayer);
   }
+  updateStatsDisplay();
 });
 resetBtn.addEventListener('click', () => {
   markers.forEach(m => {
@@ -278,4 +296,10 @@ fetch('airports.json')
       planeIntervalId = setInterval(loadActiveFlights, 60000);
       loadActiveFlights();
     }
+    fetch('info')
+      .then(r => r.json())
+      .then(info => {
+        if (info && typeof info === 'object') infoStats = info;
+        updateStatsDisplay();
+      });
   });

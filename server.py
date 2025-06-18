@@ -361,6 +361,7 @@ def update_flights():
         "active_planes": len(active),
     })
     STATS_PATH.write_text(json.dumps(stats, indent=2))
+    update_airports()
     return {"routes": len(routes), "active": len(active), "last_run": now}
 
 
