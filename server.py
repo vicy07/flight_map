@@ -191,14 +191,24 @@ def update_airports():
         prefix = rt.get("airline", "")
         number = rt.get("flight_number", "")
         airline_name = airline_names.get(prefix, prefix)
+        route_details = {
+            "airline": airline_name,
+            "airline_code": prefix,
+            "flight_number": number,
+        }
         src["routes"].append({
+            **route_details,
             "from": [src["lat"], src["lon"]],
             "to": [dest["lat"], dest["lon"]],
             "from_name": src["name"],
             "to_name": dest["name"],
-            "airline": airline_name,
-            "airline_code": prefix,
-            "flight_number": number
+        })
+        dest["routes"].append({
+            **route_details,
+            "from": [dest["lat"], dest["lon"]],
+            "to": [src["lat"], src["lon"]],
+            "from_name": dest["name"],
+            "to_name": src["name"],
         })
         route_count += 1
 

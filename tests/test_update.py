@@ -81,22 +81,27 @@ def test_update_airports(tmp_path, monkeypatch):
     assert resp.status_code == 200
 
     data = json.loads((data_dir / "airports.json").read_text())
-    assert len(data) == 1
-    assert len(data[0]["routes"]) == 1
-    assert data[0]["routes"][0]["airline"] == "Test Airline"
-    assert data[0]["routes"][0]["flight_number"] == "123"
-    assert data[0]["country_code"] == "AA"
-    assert data[0]["country"] == "Country AA"
+    assert len(data) == 2
+    airports = {a["code"]: a for a in data}
+    a_aaa = airports["AAA"]
+    a_bbb = airports["BBB"]
+    assert len(a_aaa["routes"]) == 1
+    assert len(a_bbb["routes"]) == 1
+    assert a_aaa["routes"][0]["airline"] == "Test Airline"
+    assert a_aaa["routes"][0]["flight_number"] == "123"
+    assert a_bbb["routes"][0]["to_name"] == "AirportA"
+    assert a_aaa["country_code"] == "AA"
+    assert a_aaa["country"] == "Country AA"
 
     stats = json.loads((data_dir / "routes_stats.json").read_text())
-    assert stats["airports_active"] == 1
+    assert stats["airports_active"] == 2
     assert stats["airports_total"] == 2
 
     full = json.loads((data_dir / "airports_full.json").read_text())
     assert len(full) == 2
 
     info = TestClient(server.app).get("/info").json()
-    assert info["active_airports"] == 1
+    assert info["active_airports"] == 2
 
 
 def test_update_airports_no_routes(tmp_path, monkeypatch):
@@ -215,9 +220,11 @@ def test_update_airports_self_clean(tmp_path, monkeypatch):
     assert resp.status_code == 200
 
     data = json.loads((data_dir / "airports.json").read_text())
-    assert len(data) == 1
-    assert len(data[0]["routes"]) == 1
-    assert data[0]["routes"][0]["to_name"] == "AirportB"
+    assert len(data) == 2
+    airports = {a["code"]: a for a in data}
+    assert len(airports["AAA"]["routes"]) == 1
+    assert len(airports["BBB"]["routes"]) == 1
+    assert airports["AAA"]["routes"][0]["to_name"] == "AirportB"
 
     routes_db = json.loads((data_dir / "routes_dynamic.json").read_text())
     assert len(routes_db) == 1
