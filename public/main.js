@@ -19,6 +19,7 @@ const markers = [];
 const activeFlightMarkers = new Map();
 const activeFlightsLayer = L.layerGroup();
 let planeIntervalId = null;
+const planeUpdateInterval = 300000; // update every 5 minutes
 const minRadius = 8;
 const maxRadius = 35;
 const airlineColors = {};
@@ -138,6 +139,7 @@ function loadActiveFlights() {
     .then(r => r.json())
     .then(data => {
       const seen = new Set();
+      const bounds = map.getBounds();
       const airlineFilter = filterSelect.value;
       const filterCode = airlineNameToCode[airlineFilter] || airlineFilter;
       Object.entries(data || {}).forEach(([icao24, f]) => {
@@ -145,6 +147,13 @@ function loadActiveFlights() {
         if (!Array.isArray(f.last_coord)) return;
         const [lat, lon] = f.last_coord;
         if (lat == null || lon == null) return;
+        if (!bounds.contains([lat, lon])) {
+          if (activeFlightMarkers.has(icao24)) {
+            activeFlightsLayer.removeLayer(activeFlightMarkers.get(icao24));
+            activeFlightMarkers.delete(icao24);
+          }
+          return;
+        }
         const code = (f.callsign || '').trim() || `${f.airline || ''}${f.flight_number || ''}`;
         let duration = '';
         if (f.first_seen && f.last_updated) {
@@ -196,7 +205,7 @@ planeToggle.addEventListener('change', () => {
   if (planeToggle.checked) {
     activeFlightsLayer.addTo(map);
     loadActiveFlights();
-    planeIntervalId = setInterval(loadActiveFlights, 60000);
+    planeIntervalId = setInterval(loadActiveFlights, planeUpdateInterval);
   } else {
     if (planeIntervalId) {
       clearInterval(planeIntervalId);
@@ -207,6 +216,11 @@ planeToggle.addEventListener('change', () => {
     map.removeLayer(activeFlightsLayer);
   }
   updateStatsDisplay();
+});
+map.on('moveend', () => {
+  if (planeToggle.checked) {
+    loadActiveFlights();
+  }
 });
 resetBtn.addEventListener('click', () => {
   markers.forEach(m => {
@@ -305,7 +319,7 @@ fetch('airports.json')
     applyFilter();
     if (planeToggle.checked) {
       activeFlightsLayer.addTo(map);
-      planeIntervalId = setInterval(loadActiveFlights, 60000);
+      planeIntervalId = setInterval(loadActiveFlights, planeUpdateInterval);
       loadActiveFlights();
     }
     fetch('info')
