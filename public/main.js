@@ -16,7 +16,7 @@ const selectedRoutes = [];
 const routesPane = map.createPane('routes');
 routesPane.style.zIndex = 200;
 const markers = [];
-const activeFlightMarkers = [];
+const activeFlightMarkers = new Map();
 const activeFlightsLayer = L.layerGroup();
 let planeIntervalId = null;
 const minRadius = 8;
@@ -65,7 +65,7 @@ function updatePathDisplay() {
 function updateStatsDisplay() {
   const visibleAirports = markers.filter(m => map.hasLayer(m.marker)).length;
   const totalAirports = infoStats.active_airports || airportsData.length || 0;
-  const visiblePlanes = planeToggle.checked ? activeFlightMarkers.length : 0;
+  const visiblePlanes = planeToggle.checked ? activeFlightMarkers.size : 0;
   const totalPlanes = infoStats.active_planes || 0;
   const routes = infoStats.routes || 0;
   const recent = infoStats.recovered_last_hour || 0;
@@ -137,11 +137,10 @@ function loadActiveFlights() {
   fetch('active-planes')
     .then(r => r.json())
     .then(data => {
-      activeFlightMarkers.forEach(m => activeFlightsLayer.removeLayer(m));
-      activeFlightMarkers.length = 0;
+      const seen = new Set();
       const airlineFilter = filterSelect.value;
       const filterCode = airlineNameToCode[airlineFilter] || airlineFilter;
-      Object.values(data || {}).forEach(f => {
+      Object.entries(data || {}).forEach(([icao24, f]) => {
         if (airlineFilter && f.airline !== filterCode) return;
         if (!Array.isArray(f.last_coord)) return;
         const [lat, lon] = f.last_coord;
@@ -161,10 +160,23 @@ function loadActiveFlights() {
         const info = [code, f.airline, duration, f.origin_name || f.origin]
           .filter(Boolean)
           .join(', ');
-        const marker = L.marker([lat, lon], { icon: planeIcon })
-          .addTo(activeFlightsLayer)
-          .bindTooltip(info);
-        activeFlightMarkers.push(marker);
+        seen.add(icao24);
+        if (activeFlightMarkers.has(icao24)) {
+          const marker = activeFlightMarkers.get(icao24);
+          marker.setLatLng([lat, lon]);
+          marker.getTooltip().setContent(info);
+        } else {
+          const marker = L.marker([lat, lon], { icon: planeIcon })
+            .addTo(activeFlightsLayer)
+            .bindTooltip(info);
+          activeFlightMarkers.set(icao24, marker);
+        }
+      });
+      activeFlightMarkers.forEach((marker, key) => {
+        if (!seen.has(key)) {
+          activeFlightsLayer.removeLayer(marker);
+          activeFlightMarkers.delete(key);
+        }
       });
       updateStatsDisplay();
     });
@@ -191,7 +203,7 @@ planeToggle.addEventListener('change', () => {
       planeIntervalId = null;
     }
     activeFlightMarkers.forEach(m => activeFlightsLayer.removeLayer(m));
-    activeFlightMarkers.length = 0;
+    activeFlightMarkers.clear();
     map.removeLayer(activeFlightsLayer);
   }
   updateStatsDisplay();
