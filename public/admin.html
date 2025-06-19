@@ -14,7 +14,15 @@
   <h1>Data Files</h1>
   <table id="file-table">
     <thead>
-      <tr><th>File</th><th>Last Modified</th><th>Download</th><th>Upload New</th></tr>
+      <tr>
+        <th>File</th>
+        <th>Last Modified</th>
+        <th>Size</th>
+        <th>Records</th>
+        <th>Download</th>
+        <th>Upload New</th>
+        <th>Delete</th>
+      </tr>
     </thead>
     <tbody></tbody>
   </table>
@@ -40,14 +48,24 @@
           await fetch(`admin/upload/${encodeURIComponent(f.name)}`, { method: 'POST', body: form });
           loadFiles();
         };
-        tr.innerHTML = `<td>${f.name}</td><td>${f.modified}</td>`;
+        const deleteBtn = document.createElement('button');
+        deleteBtn.textContent = 'Delete';
+        deleteBtn.onclick = async () => {
+          if (!confirm(`Delete ${f.name}?`)) return;
+          await fetch(`admin/delete/${encodeURIComponent(f.name)}`, { method: 'DELETE' });
+          loadFiles();
+        };
+        tr.innerHTML = `<td>${f.name}</td><td>${f.modified}</td><td>${f.size}</td><td>${f.records}</td>`;
         const tdDownload = document.createElement('td');
         tdDownload.appendChild(downloadLink);
         const tdUpload = document.createElement('td');
         tdUpload.appendChild(fileInput);
         tdUpload.appendChild(uploadBtn);
+        const tdDelete = document.createElement('td');
+        tdDelete.appendChild(deleteBtn);
         tr.appendChild(tdDownload);
         tr.appendChild(tdUpload);
+        tr.appendChild(tdDelete);
         tbody.appendChild(tr);
       });
     }

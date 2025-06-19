@@ -35,3 +35,16 @@ def test_admin_file_ops(tmp_path, monkeypatch):
     )
     assert resp.status_code == 200
     assert (data_dir / "new.txt").read_text() == "data"
+
+    # New file metadata
+    resp = client.get("/admin/files")
+    assert resp.status_code == 200
+    files = resp.json()["files"]
+    info = next(f for f in files if f["name"] == "new.txt")
+    assert "size" in info and info["size"] == 4
+    assert "records" in info
+
+    # Delete file
+    resp = client.delete("/admin/delete/test.txt")
+    assert resp.status_code == 200
+    assert not (data_dir / "test.txt").exists()
