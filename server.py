@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, UploadFile, File
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 import uvicorn
@@ -432,6 +432,38 @@ def get_routes_info():
         "recovered_last_hour": recovered_hour,
         "recovered_last_24h": recovered_day,
     }
+
+
+@app.get("/admin/files")
+def list_data_files():
+    """Return files available in the data directory."""
+    files = []
+    for p in DATA_DIR.glob("*"):
+        if p.is_file():
+            mtime = datetime.utcfromtimestamp(p.stat().st_mtime).isoformat() + "Z"
+            files.append({"name": p.name, "modified": mtime})
+    return {"files": files}
+
+
+@app.get("/admin/download/{filename}")
+def download_data_file(filename: str):
+    """Download a file from the data directory."""
+    path = (DATA_DIR / filename).resolve()
+    if path.parent != DATA_DIR.resolve() or not path.is_file():
+        raise HTTPException(status_code=404, detail="file not found")
+    return FileResponse(path, filename=filename)
+
+
+@app.post("/admin/upload/{filename}")
+async def upload_data_file(filename: str, file: UploadFile = File(...)):
+    """Upload and replace a file in the data directory."""
+    path = (DATA_DIR / filename).resolve()
+    if path.parent != DATA_DIR.resolve():
+        raise HTTPException(status_code=400, detail="invalid path")
+    with path.open("wb") as f_out:
+        content = await file.read()
+        f_out.write(content)
+    return {"status": "ok"}
 
 # Serve static files from the public directory (mounted last so API routes take precedence)
 app.mount("/", StaticFiles(directory="public", html=True), name="static")

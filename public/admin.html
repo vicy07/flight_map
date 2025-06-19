@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Admin</title>
+  <style>
+    body { font-family: sans-serif; padding: 20px; }
+    table { border-collapse: collapse; }
+    th, td { border: 1px solid #ccc; padding: 6px 8px; }
+    input[type=file] { width: 200px; }
+  </style>
+</head>
+<body>
+  <h1>Data Files</h1>
+  <table id="file-table">
+    <thead>
+      <tr><th>File</th><th>Last Modified</th><th>Download</th><th>Upload New</th></tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+  <script>
+    async function loadFiles() {
+      const resp = await fetch('admin/files');
+      const data = await resp.json();
+      const tbody = document.querySelector('#file-table tbody');
+      tbody.innerHTML = '';
+      (data.files || []).forEach(f => {
+        const tr = document.createElement('tr');
+        const downloadLink = document.createElement('a');
+        downloadLink.href = `admin/download/${encodeURIComponent(f.name)}`;
+        downloadLink.textContent = 'Download';
+        const fileInput = document.createElement('input');
+        fileInput.type = 'file';
+        const uploadBtn = document.createElement('button');
+        uploadBtn.textContent = 'Upload';
+        uploadBtn.onclick = async () => {
+          if (!fileInput.files.length) return;
+          const form = new FormData();
+          form.append('file', fileInput.files[0]);
+          await fetch(`admin/upload/${encodeURIComponent(f.name)}`, { method: 'POST', body: form });
+          loadFiles();
+        };
+        tr.innerHTML = `<td>${f.name}</td><td>${f.modified}</td>`;
+        const tdDownload = document.createElement('td');
+        tdDownload.appendChild(downloadLink);
+        const tdUpload = document.createElement('td');
+        tdUpload.appendChild(fileInput);
+        tdUpload.appendChild(uploadBtn);
+        tr.appendChild(tdDownload);
+        tr.appendChild(tdUpload);
+        tbody.appendChild(tr);
+      });
+    }
+    loadFiles();
+  </script>
+</body>
+</html>
