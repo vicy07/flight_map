@@ -139,6 +139,13 @@ The live flights currently being tracked can be retrieved via `/active-planes`:
 curl http://localhost:8000/active-planes
 ```
 
+## Admin Interface
+
+Browse to `/admin.html` for a simple administrator page listing the files in
+the `$DATA_DIR` directory. Each entry shows the last modified time, file size
+and record count with options to download, upload a replacement or delete the
+file.
+
 
 ## Deployment on Railway
 
