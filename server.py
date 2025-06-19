@@ -436,13 +436,44 @@ def get_routes_info():
 
 @app.get("/admin/files")
 def list_data_files():
-    """Return files available in the data directory."""
+    """Return files available in the data directory with metadata."""
     files = []
     for p in DATA_DIR.glob("*"):
         if p.is_file():
             mtime = datetime.utcfromtimestamp(p.stat().st_mtime).isoformat() + "Z"
-            files.append({"name": p.name, "modified": mtime})
+            size = p.stat().st_size
+            records = 0
+            try:
+                data = json.loads(p.read_text())
+                if isinstance(data, list):
+                    records = len(data)
+                elif isinstance(data, dict):
+                    records = len(data)
+            except Exception:
+                try:
+                    with p.open() as f_in:
+                        records = sum(1 for _ in f_in)
+                except Exception:
+                    records = 0
+            files.append(
+                {
+                    "name": p.name,
+                    "modified": mtime,
+                    "size": size,
+                    "records": records,
+                }
+            )
     return {"files": files}
+
+
+@app.delete("/admin/delete/{filename}")
+def delete_data_file(filename: str):
+    """Delete a file from the data directory."""
+    path = (DATA_DIR / filename).resolve()
+    if path.parent != DATA_DIR.resolve() or not path.is_file():
+        raise HTTPException(status_code=404, detail="file not found")
+    path.unlink()
+    return {"status": "deleted"}
 
 
 @app.get("/admin/download/{filename}")
