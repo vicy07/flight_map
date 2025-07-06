@@ -1,0 +1,23 @@
+@startuml
+!include <C4/C4_Component>
+
+Container(api, "FastAPI Server", "Python") {
+  Component(api_routes, "API Endpoints", "FastAPI", "/update-airports, /update-routes, /active-planes, /info, /admin")
+  Component(data_manager, "Data Manager", "Python", "Reads and writes JSON datasets")
+  Component(nearest, "Nearest Airport Lookup", "Python", "KDTree for geolocation")
+  Component(static_files, "Static File Server", "FastAPI", "Serves HTML/JS from /public")
+}
+ContainerDb(data, "Data Directory", "JSON files")
+System_Ext(opensky, "OpenSky Network")
+System_Ext(ourairports, "OurAirports")
+System_Ext(openflights, "OpenFlights")
+
+Rel(api_routes, data_manager, "Reads/Writes")
+Rel(data_manager, data, "JSON files")
+Rel(api_routes, nearest, "Locate airports")
+Rel(api_routes, opensky, "Fetch flights")
+Rel(api_routes, ourairports, "Download airports")
+Rel(api_routes, openflights, "Download airlines")
+Rel_L(api_routes, static_files, "Serves UI")
+
+@enduml

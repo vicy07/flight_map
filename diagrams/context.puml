@@ -1,0 +1,15 @@
+@startuml
+!include <C4/C4_Context>
+
+Person(user, "User", "Interacts with the map via a browser")
+System(flightmap, "Flight Map", "Interactive route map for Europe")
+System_Ext(opensky, "OpenSky Network", "Provides live flight data")
+System_Ext(ourairports, "OurAirports", "Source of airport and country data")
+System_Ext(openflights, "OpenFlights", "Provides airline names")
+
+Rel(user, flightmap, "Uses")
+Rel(flightmap, opensky, "Fetch active flights")
+Rel(flightmap, ourairports, "Download airport data")
+Rel(flightmap, openflights, "Download airline codes")
+
+@enduml
