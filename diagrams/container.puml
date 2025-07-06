@@ -1,0 +1,22 @@
+@startuml
+!include <C4/C4_Container>
+
+Person(user, "User")
+System_Boundary(flightmap, "Flight Map") {
+  Container(spa, "Browser", "JavaScript", "Leaflet map and UI")
+  Container(api, "FastAPI Server", "Python", "Serves data and updates routes")
+  ContainerDb(data, "Data Directory", "JSON files", "Airports, routes, stats")
+}
+System_Ext(opensky, "OpenSky Network")
+System_Ext(ourairports, "OurAirports")
+System_Ext(openflights, "OpenFlights")
+
+Rel(user, spa, "Uses")
+Rel(spa, api, "HTTP")
+Rel(api, opensky, "Fetch flights")
+Rel(api, ourairports, "Download airports")
+Rel(api, openflights, "Download airlines")
+Rel(api, data, "Read/write")
+Rel(api, spa, "Serve static files")
+
+@enduml

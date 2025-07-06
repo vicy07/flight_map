@@ -149,3 +149,15 @@ to download the file or upload a replacement.
 ## Deployment on Railway
 
 Create a project from this repository and configure a persistent volume mounted at `/data`. Set the `DATA_DIR` environment variable to `/data` so updated airport data persists between deployments.
+
+## Architecture
+
+Architecture diagrams in [C4](https://c4model.com/) notation are provided in the
+`diagrams` directory. To regenerate the images:
+
+```bash
+plantuml diagrams/*.puml
+```
+
+The diagrams cover the system context, container relationships and key
+components of the FastAPI server.
