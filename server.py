@@ -5,6 +5,7 @@ import uvicorn
 import os
 import csv
 import json
+import orjson
 from pathlib import Path
 from datetime import datetime, timedelta
 from math import radians, cos, sin, asin, sqrt
@@ -35,6 +36,21 @@ AIRPORTS_INDEX = []
 AIRPORTS_MAP = {}
 
 EARTH_RADIUS_KM = 6371.0
+
+
+def load_json(path: Path, default):
+    """Load JSON using orjson with a fallback default."""
+    if not path.exists():
+        return default
+    try:
+        return orjson.loads(path.read_bytes())
+    except Exception:
+        return default
+
+
+def write_json(path: Path, data):
+    """Write JSON using orjson."""
+    path.write_bytes(orjson.dumps(data))
 
 def _to_unit_vector(lat: float, lon: float):
     """Convert lat/lon degrees to 3D unit vector."""
@@ -147,12 +163,7 @@ def update_airports():
         }
 
     # Load collected route data
-    routes = []
-    if ROUTES_DB_PATH.exists():
-        try:
-            routes = json.loads(ROUTES_DB_PATH.read_text() or "[]")
-        except json.JSONDecodeError:
-            routes = []
+    routes = load_json(ROUTES_DB_PATH, [])
 
     # Self-clean invalid routes where source and destination are identical
     cleaned_routes = []
@@ -162,7 +173,7 @@ def update_airports():
         if src_code and dest_code and src_code != dest_code:
             cleaned_routes.append(rt)
     if cleaned_routes != routes:
-        ROUTES_DB_PATH.write_text(json.dumps(cleaned_routes, indent=2))
+        write_json(ROUTES_DB_PATH, cleaned_routes)
     routes = cleaned_routes
 
     # Build a mapping of airline codes to human readable names
@@ -219,8 +230,8 @@ def update_airports():
     if not airports_with_routes:
         airports_with_routes = list(airports.values())
 
-    AIRPORTS_PATH.write_text(json.dumps(airports_with_routes, indent=2))
-    AIRPORTS_FULL_PATH.write_text(json.dumps(list(airports.values()), indent=2))
+    write_json(AIRPORTS_PATH, airports_with_routes)
+    write_json(AIRPORTS_FULL_PATH, list(airports.values()))
 
     # Build lookup structures for nearest airport queries using the full list
     global AIRPORTS_MAP
@@ -228,15 +239,10 @@ def update_airports():
     build_airport_tree(airports.values())
 
     # Update stats file with airport counts
-    stats = {}
-    if STATS_PATH.exists():
-        try:
-            stats = json.loads(STATS_PATH.read_text() or "{}")
-        except json.JSONDecodeError:
-            stats = {}
+    stats = load_json(STATS_PATH, {})
     stats["airports_active"] = len(airports_with_routes)
     stats["airports_total"] = len(airports)
-    STATS_PATH.write_text(json.dumps(stats, indent=2))
+    write_json(STATS_PATH, stats)
 
     return {"airports": len(airports_with_routes), "routes": route_count}
 
@@ -251,20 +257,10 @@ def update_routes():
     now = datetime.utcnow().isoformat() + "Z"
 
     # Load current active flights
-    active = {}
-    if ACTIVE_PLANES_PATH.exists():
-        try:
-            active = json.loads(ACTIVE_PLANES_PATH.read_text() or "{}")
-        except json.JSONDecodeError:
-            active = {}
+    active = load_json(ACTIVE_PLANES_PATH, {})
 
     # Load existing routes
-    routes = []
-    if ROUTES_DB_PATH.exists():
-        try:
-            routes = json.loads(ROUTES_DB_PATH.read_text() or "[]")
-        except json.JSONDecodeError:
-            routes = []
+    routes = load_json(ROUTES_DB_PATH, [])
     routes_by_key = {
         (r.get("airline"), r.get("flight_number"), r.get("source"), r.get("destination")): r
         for r in routes
@@ -274,9 +270,9 @@ def update_routes():
     airports = {}
     if AIRPORTS_FULL_PATH.exists():
         try:
-            a_list = json.loads(AIRPORTS_FULL_PATH.read_text() or "[]")
+            a_list = load_json(AIRPORTS_FULL_PATH, [])
             airports = {a["code"]: a for a in a_list}
-        except json.JSONDecodeError:
+        except Exception:
             airports = {}
     global AIRPORTS_MAP
     AIRPORTS_MAP = airports
@@ -356,21 +352,16 @@ def update_routes():
         cleaned.append(r)
     routes = cleaned
 
-    ACTIVE_PLANES_PATH.write_text(json.dumps(active, indent=2))
-    ROUTES_DB_PATH.write_text(json.dumps(routes, indent=2))
+    write_json(ACTIVE_PLANES_PATH, active)
+    write_json(ROUTES_DB_PATH, routes)
 
-    stats = {}
-    if STATS_PATH.exists():
-        try:
-            stats = json.loads(STATS_PATH.read_text() or "{}")
-        except json.JSONDecodeError:
-            stats = {}
+    stats = load_json(STATS_PATH, {})
     stats.update({
         "routes": len(routes),
         "last_run": now,
         "active_planes": len(active),
     })
-    STATS_PATH.write_text(json.dumps(stats, indent=2))
+    write_json(STATS_PATH, stats)
     update_airports()
     return {"routes": len(routes), "active": len(active), "last_run": now}
 
@@ -391,24 +382,11 @@ def get_routes_info():
     """Return summary about airports and routes."""
     stats = {}
     if STATS_PATH.exists():
-        try:
-            stats = json.loads(STATS_PATH.read_text() or "{}")
-        except json.JSONDecodeError:
-            stats = {}
+        stats = load_json(STATS_PATH, {})
 
-    routes = []
-    if ROUTES_DB_PATH.exists():
-        try:
-            routes = json.loads(ROUTES_DB_PATH.read_text() or "[]")
-        except json.JSONDecodeError:
-            routes = []
+    routes = load_json(ROUTES_DB_PATH, [])
 
-    airports_list = []
-    if AIRPORTS_PATH.exists():
-        try:
-            airports_list = json.loads(AIRPORTS_PATH.read_text() or "[]")
-        except json.JSONDecodeError:
-            airports_list = []
+    airports_list = load_json(AIRPORTS_PATH, [])
 
     now = datetime.utcnow()
     recovered_hour = 0
@@ -444,7 +422,7 @@ def list_data_files():
             size = p.stat().st_size
             records = 0
             try:
-                data = json.loads(p.read_text())
+                data = load_json(p, None)
                 if isinstance(data, list):
                     records = len(data)
                 elif isinstance(data, dict):
