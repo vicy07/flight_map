@@ -12,6 +12,9 @@ from math import radians, cos, sin, asin, sqrt
 import re
 import requests
 from scipy.spatial import cKDTree
+import resource
+import psutil
+import gc
 
 DATA_DIR = Path(os.environ.get("DATA_DIR", "public"))
 DATA_DIR.mkdir(parents=True, exist_ok=True)
@@ -36,6 +39,30 @@ AIRPORTS_INDEX = []
 AIRPORTS_MAP = {}
 
 EARTH_RADIUS_KM = 6371.0
+
+# Memory management constants
+MAX_MEMORY_MB = int(os.environ.get("MAX_MEMORY_MB", "1024"))
+TARGET_MEMORY_MB = int(os.environ.get("TARGET_MEMORY_MB", "500"))
+
+
+def _set_memory_limit():
+    """Set a hard memory usage limit for the process if possible."""
+    limit_bytes = MAX_MEMORY_MB * 1024 * 1024
+    try:
+        resource.setrlimit(resource.RLIMIT_AS, (limit_bytes, limit_bytes))
+    except (ValueError, resource.error):
+        # Ignore if the limit cannot be applied on this platform
+        pass
+
+
+def enforce_memory_target():
+    """Attempt to keep memory usage under TARGET_MEMORY_MB."""
+    rss = psutil.Process(os.getpid()).memory_info().rss // (1024 * 1024)
+    if rss > TARGET_MEMORY_MB:
+        gc.collect()
+
+
+_set_memory_limit()
 
 
 def load_json(path: Path, default):
@@ -366,6 +393,7 @@ def update_routes():
     })
     write_json(STATS_PATH, stats)
     update_airports()
+    enforce_memory_target()
     return {"routes": len(routes), "active": len(active), "last_run": now}
 
 
