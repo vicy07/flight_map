@@ -69,10 +69,12 @@ function updateStatsDisplay() {
   const visiblePlanes = planeToggle.checked ? activeFlightMarkers.size : 0;
   const totalPlanes = infoStats.active_planes || 0;
   const routes = infoStats.routes || 0;
-  const recent = infoStats.recovered_last_hour || 0;
-  statsEl.textContent = `Airports: ${visibleAirports}/${totalAirports} | ` +
+  const added = infoStats.recovered_last_hour || 0;
+  const removed = infoStats.removed_last_hour || 0;
+  statsEl.innerHTML = `Airports: ${visibleAirports}/${totalAirports} | ` +
     `Planes: ${visiblePlanes}/${totalPlanes} | ` +
-    `Routes: ${routes} (last hr: ${recent})`;
+    `Routes: ${routes} (last hr: <span style="color:green">+${added}</span> ` +
+    `<span style="color:red">-${removed}</span>)`;
 }
 
 function applyFilter() {

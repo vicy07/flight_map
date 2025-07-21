@@ -202,5 +202,11 @@ def test_route_expiration(tmp_path, monkeypatch):
     remaining = json.loads((data_dir / "routes_dynamic.json").read_text())
     assert remaining == []
 
+    stats = json.loads((data_dir / "routes_stats.json").read_text())
+    assert stats["removed_last_run"] == 1
+
+    info = TestClient(server.app).get("/info").json()
+    assert info["removed_last_hour"] == 1
+
 
 

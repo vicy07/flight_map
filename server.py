@@ -340,6 +340,7 @@ def update_routes():
 
     # Update status and prune old routes
     cleaned = []
+    pruned = 0
     now_dt = datetime.utcnow()
     for r in routes:
         try:
@@ -347,6 +348,7 @@ def update_routes():
         except Exception:
             last_dt = now_dt
         if now_dt - last_dt > timedelta(days=31):
+            pruned += 1
             continue
         r["status"] = "Active" if now_dt - last_dt <= timedelta(days=21) else "Not Active"
         cleaned.append(r)
@@ -360,6 +362,7 @@ def update_routes():
         "routes": len(routes),
         "last_run": now,
         "active_planes": len(active),
+        "removed_last_run": pruned,
     })
     write_json(STATS_PATH, stats)
     update_airports()
@@ -409,6 +412,7 @@ def get_routes_info():
         "active_planes": stats.get("active_planes", 0),
         "recovered_last_hour": recovered_hour,
         "recovered_last_24h": recovered_day,
+        "removed_last_hour": stats.get("removed_last_run", 0),
     }
 
 
