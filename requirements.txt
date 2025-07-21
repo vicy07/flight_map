@@ -6,3 +6,4 @@ httpx
 scipy
 python-multipart
 orjson
+psutil
