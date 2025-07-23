@@ -10,7 +10,6 @@ const filterSelect = document.getElementById('airline-filter');
 const resetBtn = document.getElementById('reset');
 const resetAirlineBtn = document.getElementById('reset-airline');
 const countrySelect = document.getElementById('country-filter');
-let countryChoices = null;
 const resetCountryBtn = document.getElementById('reset-country');
 const planeToggle = document.getElementById('plane-toggle');
 const selectedRoutes = [];
@@ -80,18 +79,15 @@ function updateStatsDisplay() {
 
 function applyFilter() {
   const airline = filterSelect.value;
-  const selected = countryChoices
-    ? countryChoices.getValue(true)
-    : Array.from(countrySelect.options)
-        .filter(o => o.selected)
-        .map(o => o.value);
-  const countries = (Array.isArray(selected) ? selected : [selected])
-    .filter(v => v);
+  // Get all selected country values from the default select
+  const selected = Array.from(countrySelect.options)
+    .filter(o => o.selected && o.value)
+    .map(o => o.value);
+  const countries = selected;
   const counts = [];
   let maxRoutes = 0;
   markers.forEach(m => {
-    const inCountry = countries.length === 0 ||
-      countries.includes(m.airport.country_code);
+    const inCountry = countries.length === 0 || countries.includes(m.airport.country_code);
     const count = inCountry ?
       m.airport.routes.filter(r => !airline || r.airline === airline).length : 0;
     counts.push(count);
@@ -208,11 +204,8 @@ resetAirlineBtn.addEventListener('click', () => {
 });
 countrySelect.addEventListener('change', applyFilter);
 resetCountryBtn.addEventListener('click', () => {
-  if (countryChoices) {
-    countryChoices.clearStore();
-  } else {
-    Array.from(countrySelect.options).forEach(o => (o.selected = false));
-  }
+  // Deselect all options
+  Array.from(countrySelect.options).forEach(o => (o.selected = false));
   applyFilter();
 });
 planeToggle.addEventListener('change', () => {
@@ -331,8 +324,6 @@ fetch('airports.json')
       });
 
     countrySelect.selectedIndex = -1;
-    countryChoices = new Choices(countrySelect, { removeItemButton: true });
-
     applyFilter();
     if (planeToggle.checked) {
       activeFlightsLayer.addTo(map);
