@@ -79,11 +79,14 @@ function updateStatsDisplay() {
 
 function applyFilter() {
   const airline = filterSelect.value;
-  const country = countrySelect.value;
+  const countries = Array.from(countrySelect.selectedOptions)
+    .map(o => o.value)
+    .filter(v => v);
   const counts = [];
   let maxRoutes = 0;
   markers.forEach(m => {
-    const inCountry = !country || m.airport.country_code === country;
+    const inCountry = countries.length === 0 ||
+      countries.includes(m.airport.country_code);
     const count = inCountry ?
       m.airport.routes.filter(r => !airline || r.airline === airline).length : 0;
     counts.push(count);
@@ -200,7 +203,7 @@ resetAirlineBtn.addEventListener('click', () => {
 });
 countrySelect.addEventListener('change', applyFilter);
 resetCountryBtn.addEventListener('click', () => {
-  countrySelect.value = '';
+  Array.from(countrySelect.options).forEach(o => (o.selected = false));
   applyFilter();
 });
 planeToggle.addEventListener('change', () => {
@@ -317,6 +320,8 @@ fetch('airports.json')
         opt.textContent = name;
         countrySelect.appendChild(opt);
       });
+
+    countrySelect.selectedIndex = -1;
 
     applyFilter();
     if (planeToggle.checked) {
