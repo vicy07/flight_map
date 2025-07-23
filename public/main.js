@@ -10,6 +10,7 @@ const filterSelect = document.getElementById('airline-filter');
 const resetBtn = document.getElementById('reset');
 const resetAirlineBtn = document.getElementById('reset-airline');
 const countrySelect = document.getElementById('country-filter');
+let countryChoices = null;
 const resetCountryBtn = document.getElementById('reset-country');
 const planeToggle = document.getElementById('plane-toggle');
 const selectedRoutes = [];
@@ -79,8 +80,12 @@ function updateStatsDisplay() {
 
 function applyFilter() {
   const airline = filterSelect.value;
-  const countries = Array.from(countrySelect.selectedOptions)
-    .map(o => o.value)
+  const selected = countryChoices
+    ? countryChoices.getValue(true)
+    : Array.from(countrySelect.options)
+        .filter(o => o.selected)
+        .map(o => o.value);
+  const countries = (Array.isArray(selected) ? selected : [selected])
     .filter(v => v);
   const counts = [];
   let maxRoutes = 0;
@@ -203,7 +208,11 @@ resetAirlineBtn.addEventListener('click', () => {
 });
 countrySelect.addEventListener('change', applyFilter);
 resetCountryBtn.addEventListener('click', () => {
-  Array.from(countrySelect.options).forEach(o => (o.selected = false));
+  if (countryChoices) {
+    countryChoices.clearStore();
+  } else {
+    Array.from(countrySelect.options).forEach(o => (o.selected = false));
+  }
   applyFilter();
 });
 planeToggle.addEventListener('change', () => {
@@ -322,6 +331,7 @@ fetch('airports.json')
       });
 
     countrySelect.selectedIndex = -1;
+    countryChoices = new Choices(countrySelect, { removeItemButton: true });
 
     applyFilter();
     if (planeToggle.checked) {
