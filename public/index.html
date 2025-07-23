@@ -12,6 +12,7 @@ AAAAAAAAAAAAgAAAIAAACAACAAAIgAAACHAAAAAAAAAAAAAAAAAAAAAAAAA
 AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAICAgICAAAAAAAoKCggAAAAC
 A////AAAACAgICAgAAAAA////
 AAAAAA==" type="image/x-icon">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/choices.js/public/assets/styles/choices.min.css" />
   <style>
     #map { height: 90vh; }
     .controls, #path-row {
@@ -27,6 +28,7 @@ AAAAAA==" type="image/x-icon">
       border-radius: 4px;
     }
     button { background-color: #f2f2f2; cursor: pointer; }
+    .choices { width: 200px; }
   </style>
 </head>
 <body>
@@ -37,7 +39,7 @@ AAAAAA==" type="image/x-icon">
     </select>
     <button id="reset-airline">Reset Airline</button>
     <label for="country-filter">Country:</label>
-    <select id="country-filter" multiple size="5">
+    <select id="country-filter" multiple>
       <option value="">All</option>
     </select>
     <button id="reset-country">Clear Country</button>
@@ -50,6 +52,7 @@ AAAAAA==" type="image/x-icon">
   <div id="map"></div>
   <div id="stats" class="controls" style="font-weight:bold"></div>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+  <script src="https://cdn.jsdelivr.net/npm/choices.js/public/assets/scripts/choices.min.js"></script>
   <script src="main.js"></script>
 </body>
 </html>
