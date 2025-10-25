@@ -39,10 +39,11 @@ def test_update_routes(tmp_path, monkeypatch):
     monkeypatch.setattr(server, "STATS_PATH", data_dir / "routes_stats.json")
     monkeypatch.setattr(server, "AIRPORTS_PATH", data_dir / "airports.json")
     monkeypatch.setattr(server, "AIRPORTS_FULL_PATH", data_dir / "airports_full.json")
+    monkeypatch.setattr(server, "CONFIG_PATH", data_dir / "config.json")
     monkeypatch.setattr(server, "update_airports", lambda: {})
     airports = [
-        {"code": "AAA", "name": "A", "lat": 10, "lon": 20},
-        {"code": "BBB", "name": "B", "lat": 30, "lon": 40},
+        {"code": "AAA", "name": "A", "lat": 10, "lon": 20, "continent": "EU"},
+        {"code": "BBB", "name": "B", "lat": 30, "lon": 40, "continent": "EU"},
     ]
     Path(server.AIRPORTS_PATH).write_text(json.dumps(airports))
     Path(server.AIRPORTS_FULL_PATH).write_text(json.dumps(airports))
@@ -105,10 +106,11 @@ def test_update_routes_missing_destination(tmp_path, monkeypatch):
     monkeypatch.setattr(server, "STATS_PATH", data_dir / "routes_stats.json")
     monkeypatch.setattr(server, "AIRPORTS_PATH", data_dir / "airports.json")
     monkeypatch.setattr(server, "AIRPORTS_FULL_PATH", data_dir / "airports_full.json")
+    monkeypatch.setattr(server, "CONFIG_PATH", data_dir / "config.json")
     monkeypatch.setattr(server, "update_airports", lambda: {})
     airports = [
-        {"code": "AAA", "name": "A", "lat": 10, "lon": 20},
-        {"code": "BBB", "name": "B", "lat": 30, "lon": 40},
+        {"code": "AAA", "name": "A", "lat": 10, "lon": 20, "continent": "EU"},
+        {"code": "BBB", "name": "B", "lat": 30, "lon": 40, "continent": "EU"},
     ]
     Path(server.AIRPORTS_PATH).write_text(json.dumps(airports))
     Path(server.AIRPORTS_FULL_PATH).write_text(json.dumps(airports))
@@ -163,11 +165,12 @@ def test_route_expiration(tmp_path, monkeypatch):
     monkeypatch.setattr(server, "STATS_PATH", data_dir / "routes_stats.json")
     monkeypatch.setattr(server, "AIRPORTS_PATH", data_dir / "airports.json")
     monkeypatch.setattr(server, "AIRPORTS_FULL_PATH", data_dir / "airports_full.json")
+    monkeypatch.setattr(server, "CONFIG_PATH", data_dir / "config.json")
     monkeypatch.setattr(server, "update_airports", lambda: {})
 
     airports = [
-        {"code": "AAA", "name": "A", "lat": 10, "lon": 20},
-        {"code": "BBB", "name": "B", "lat": 30, "lon": 40},
+        {"code": "AAA", "name": "A", "lat": 10, "lon": 20, "continent": "EU"},
+        {"code": "BBB", "name": "B", "lat": 30, "lon": 40, "continent": "EU"},
     ]
     Path(server.AIRPORTS_PATH).write_text(json.dumps(airports))
     Path(server.AIRPORTS_FULL_PATH).write_text(json.dumps(airports))

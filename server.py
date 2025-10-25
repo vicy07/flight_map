@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, UploadFile, File
+from fastapi import FastAPI, HTTPException, UploadFile, File, Body
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 import uvicorn
@@ -13,6 +13,8 @@ import re
 import requests
 from scipy.spatial import cKDTree
 
+from typing import Dict, List
+
 DATA_DIR = Path(os.environ.get("DATA_DIR", "public"))
 DATA_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -23,6 +25,7 @@ AIRPORTS_FULL_PATH = DATA_DIR / "airports_full.json"
 ROUTES_DB_PATH = DATA_DIR / "routes_dynamic.json"
 ACTIVE_PLANES_PATH = DATA_DIR / "active_planes.json"
 STATS_PATH = DATA_DIR / "routes_stats.json"
+CONFIG_PATH = DATA_DIR / "config.json"
 AIRLINES_URL = "https://raw.githubusercontent.com/jpatokal/openflights/master/data/airlines.dat"
 
 app = FastAPI()
@@ -39,6 +42,21 @@ AIRPORTS_LON_RANGE = (None, None)
 
 EARTH_RADIUS_KM = 6371.0
 
+CONTINENTS: Dict[str, str] = {
+    "AF": "Africa",
+    "AN": "Antarctica",
+    "AS": "Asia",
+    "EU": "Europe",
+    "NA": "North America",
+    "OC": "Oceania",
+    "SA": "South America",
+}
+
+DEFAULT_CONFIG = {
+    "airport_continents": ["EU"],
+    "flight_continents": ["EU"],
+}
+
 
 def load_json(path: Path, default):
     """Load JSON using orjson with a fallback default."""
@@ -53,6 +71,41 @@ def load_json(path: Path, default):
 def write_json(path: Path, data):
     """Write JSON using orjson."""
     path.write_bytes(orjson.dumps(data))
+
+
+def normalize_continents(values: List[str]) -> List[str]:
+    """Return a sorted list of valid continent codes."""
+    if not values:
+        return []
+    filtered = [v for v in values if v in CONTINENTS]
+    # Preserve order by using dict.fromkeys
+    return list(dict.fromkeys(filtered))
+
+
+def load_config() -> Dict[str, List[str]]:
+    """Load configuration or return defaults."""
+    data = load_json(CONFIG_PATH, DEFAULT_CONFIG)
+    config = {}
+    config["airport_continents"] = normalize_continents(
+        data.get("airport_continents", DEFAULT_CONFIG["airport_continents"])
+    )
+    if not config["airport_continents"]:
+        config["airport_continents"] = []
+    config["flight_continents"] = normalize_continents(
+        data.get("flight_continents", DEFAULT_CONFIG["flight_continents"])
+    )
+    if not config["flight_continents"]:
+        config["flight_continents"] = []
+    return config
+
+
+def save_config(config: Dict[str, List[str]]):
+    """Persist configuration values."""
+    to_save = {
+        "airport_continents": normalize_continents(config.get("airport_continents", [])),
+        "flight_continents": normalize_continents(config.get("flight_continents", [])),
+    }
+    write_json(CONFIG_PATH, to_save)
 
 def _to_unit_vector(lat: float, lon: float):
     """Convert lat/lon degrees to 3D unit vector."""
@@ -130,6 +183,9 @@ def update_airports():
     airports_url = "https://raw.githubusercontent.com/davidmegginson/ourairports-data/master/airports.csv"
     countries_url = "https://raw.githubusercontent.com/davidmegginson/ourairports-data/master/countries.csv"
 
+    config = load_config()
+    allowed_continents = set(config.get("airport_continents") or CONTINENTS.keys())
+
     # Download airports from OurAirports
     resp = requests.get(airports_url)
     resp.raise_for_status()
@@ -154,8 +210,8 @@ def update_airports():
             lon = float(row["longitude_deg"])
         except (ValueError, KeyError):
             continue
-        continent = row.get("continent")
-        if continent != "EU":
+        continent = row.get("continent") or ""
+        if allowed_continents and continent not in allowed_continents:
             continue
         country_code = row.get("iso_country", "")
         airports[key] = {
@@ -166,6 +222,7 @@ def update_airports():
 
             "country_code": country_code,
             "country": country_map.get(country_code, country_code),
+            "continent": continent,
             "routes": []
         }
         latitudes.append(lat)
@@ -243,7 +300,7 @@ def update_airports():
     write_json(AIRPORTS_FULL_PATH, list(airports.values()))
 
     # Build lookup structures for nearest airport queries using the full list
-    global AIRPORTS_MAP, AIRPORTS_LAT_RANGE, AIRPORTS_LON_RANGE
+    global AIRPORTS_MAP, AIRPORTS_LAT_RANGE, AIRPORTS_LON_RANGE, AIRPORTS_TREE, AIRPORTS_INDEX
     AIRPORTS_MAP = {a["code"]: a for a in airports.values()}
     build_airport_tree(airports.values())
     if latitudes and longitudes:
@@ -255,16 +312,21 @@ def update_airports():
 
     # Update stats file with airport counts
     stats = load_json(STATS_PATH, {})
+    now = datetime.utcnow().isoformat() + "Z"
     stats["airports_active"] = len(airports_with_routes)
     stats["airports_total"] = len(airports)
+    stats["last_airports_update"] = now
     write_json(STATS_PATH, stats)
 
-    return {"airports": len(airports_with_routes), "routes": route_count}
+    return {"airports": len(airports_with_routes), "routes": route_count, "last_run": now}
 
 
 @app.post("/update-routes")
 def update_routes():
     """Fetch active flights from OpenSky and update route database."""
+    config = load_config()
+    allowed_continents = set(config.get("flight_continents") or CONTINENTS.keys())
+
     resp = requests.get("https://opensky-network.org/api/states/all")
     resp.raise_for_status()
     data = resp.json()
@@ -289,16 +351,29 @@ def update_routes():
         try:
             a_list = load_json(AIRPORTS_FULL_PATH, [])
             airports = {a["code"]: a for a in a_list}
-            latitudes = [a.get("lat") for a in a_list if a.get("lat") is not None]
-            longitudes = [a.get("lon") for a in a_list if a.get("lon") is not None]
         except Exception:
             airports = {}
-            latitudes = []
-            longitudes = []
+    filtered_airports = {}
+    if airports:
+        if allowed_continents:
+            filtered_airports = {
+                code: ap
+                for code, ap in airports.items()
+                if not ap.get("continent")
+                or (ap.get("continent") in allowed_continents)
+            }
+        else:
+            filtered_airports = airports
+    airports = filtered_airports or airports
+    latitudes = [a.get("lat") for a in airports.values() if a.get("lat") is not None]
+    longitudes = [a.get("lon") for a in airports.values() if a.get("lon") is not None]
     global AIRPORTS_MAP, AIRPORTS_LAT_RANGE, AIRPORTS_LON_RANGE
     AIRPORTS_MAP = airports
-    if AIRPORTS_MAP and AIRPORTS_TREE is None:
+    if AIRPORTS_MAP:
         build_airport_tree(AIRPORTS_MAP.values())
+    else:
+        AIRPORTS_TREE = None
+        AIRPORTS_INDEX = []
     if latitudes and longitudes:
         AIRPORTS_LAT_RANGE = (min(latitudes), max(latitudes))
         AIRPORTS_LON_RANGE = (min(longitudes), max(longitudes))
@@ -403,6 +478,7 @@ def update_routes():
     stats.update({
         "routes": len(routes),
         "last_run": now,
+        "last_routes_update": now,
         "active_planes": len(active),
         "removed_last_run": pruned,
     })
@@ -450,12 +526,46 @@ def get_routes_info():
         "active_airports": len(airports_list),
         "total_airports": stats.get("airports_total", len(airports_list)),
         "routes": len(routes),
-        "last_update": stats.get("last_run"),
+        "last_update": stats.get("last_routes_update") or stats.get("last_run"),
+        "last_airports_update": stats.get("last_airports_update"),
+        "last_routes_update": stats.get("last_routes_update") or stats.get("last_run"),
         "active_planes": stats.get("active_planes", 0),
         "recovered_last_hour": recovered_hour,
         "recovered_last_24h": recovered_day,
         "removed_last_hour": stats.get("removed_last_run", 0),
     }
+
+
+@app.get("/admin/config")
+def get_admin_config():
+    """Return configuration options for the admin interface."""
+    config = load_config()
+    stats = load_json(STATS_PATH, {}) if STATS_PATH.exists() else {}
+    return {
+        "config": config,
+        "continents": CONTINENTS,
+        "last_airports_update": stats.get("last_airports_update"),
+        "last_routes_update": stats.get("last_routes_update") or stats.get("last_run"),
+    }
+
+
+@app.post("/admin/config")
+def update_admin_config(payload: Dict[str, List[str]] = Body(...)):
+    """Update configuration for airport and flight collection."""
+    current = load_config()
+    new_config = {
+        "airport_continents": payload.get("airport_continents", current["airport_continents"]),
+        "flight_continents": payload.get("flight_continents", current["flight_continents"]),
+    }
+    save_config(new_config)
+    return {"status": "ok", "config": load_config()}
+
+
+@app.post("/admin/run-update")
+def run_full_update():
+    """Trigger an immediate routes and airports update."""
+    result = update_routes()
+    return {"status": "started", "result": result}
 
 
 @app.get("/admin/files")

@@ -51,6 +51,7 @@ def test_update_airports(tmp_path, monkeypatch):
     monkeypatch.setattr(server, "AIRPORTS_FULL_PATH", data_dir / "airports_full.json")
     monkeypatch.setattr(server, "ROUTES_DB_PATH", data_dir / "routes_dynamic.json")
     monkeypatch.setattr(server, "STATS_PATH", data_dir / "routes_stats.json")
+    monkeypatch.setattr(server, "CONFIG_PATH", data_dir / "config.json")
 
     routes = [
         {
@@ -137,6 +138,7 @@ def test_update_airports_no_routes(tmp_path, monkeypatch):
     monkeypatch.setattr(server, "AIRPORTS_FULL_PATH", data_dir / "airports_full.json")
     monkeypatch.setattr(server, "ROUTES_DB_PATH", data_dir / "routes_dynamic.json")
     monkeypatch.setattr(server, "STATS_PATH", data_dir / "routes_stats.json")
+    monkeypatch.setattr(server, "CONFIG_PATH", data_dir / "config.json")
 
     # No routes collected yet
     (data_dir / "routes_dynamic.json").write_text("[]")
@@ -190,6 +192,7 @@ def test_update_airports_self_clean(tmp_path, monkeypatch):
     monkeypatch.setattr(server, "AIRPORTS_FULL_PATH", data_dir / "airports_full.json")
     monkeypatch.setattr(server, "ROUTES_DB_PATH", data_dir / "routes_dynamic.json")
     monkeypatch.setattr(server, "STATS_PATH", data_dir / "routes_stats.json")
+    monkeypatch.setattr(server, "CONFIG_PATH", data_dir / "config.json")
 
     routes = [
         {
@@ -242,6 +245,7 @@ def test_get_airports_missing(tmp_path, monkeypatch):
     (tmp_path / "public").mkdir()
     monkeypatch.setattr(server, "DATA_DIR", data_dir)
     monkeypatch.setattr(server, "AIRPORTS_PATH", data_dir / "airports.json")
+    monkeypatch.setattr(server, "CONFIG_PATH", data_dir / "config.json")
 
     client = TestClient(server.app)
     resp = client.get("/airports.json")
