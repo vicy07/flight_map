@@ -13,6 +13,7 @@ def setup(tmp_path, monkeypatch):
     data_dir.mkdir()
     (tmp_path / "public").mkdir()
     monkeypatch.setattr(server, "DATA_DIR", data_dir)
+    monkeypatch.setattr(server, "CONFIG_PATH", data_dir / "config.json")
     return data_dir, TestClient(server.app)
 
 
@@ -48,3 +49,20 @@ def test_admin_file_ops(tmp_path, monkeypatch):
     resp = client.delete("/admin/delete/test.txt")
     assert resp.status_code == 200
     assert not (data_dir / "test.txt").exists()
+
+
+def test_admin_config(tmp_path, monkeypatch):
+    data_dir, client = setup(tmp_path, monkeypatch)
+
+    resp = client.get("/admin/config")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert "continents" in body
+    assert body["config"]["airport_continents"] == ["EU"]
+
+    payload = {"airport_continents": ["NA", "EU"], "flight_continents": ["NA"]}
+    resp = client.post("/admin/config", json=payload)
+    assert resp.status_code == 200
+    saved = json.loads((data_dir / "config.json").read_text())
+    assert set(saved["airport_continents"]) == {"EU", "NA"}
+    assert saved["flight_continents"] == ["NA"]
