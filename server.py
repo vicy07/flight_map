@@ -34,6 +34,8 @@ CALLSIGN_RE = re.compile(r"^([A-Za-z]{2,3})")
 AIRPORTS_TREE = None
 AIRPORTS_INDEX = []
 AIRPORTS_MAP = {}
+AIRPORTS_LAT_RANGE = (None, None)
+AIRPORTS_LON_RANGE = (None, None)
 
 EARTH_RADIUS_KM = 6371.0
 
@@ -138,6 +140,8 @@ def update_airports():
     resp_countries = requests.get(countries_url)
     resp_countries.raise_for_status()
     country_map = {r["code"]: r["name"] for r in csv.DictReader(resp_countries.text.splitlines())}
+    latitudes = []
+    longitudes = []
     for row in reader:
         try:
             iata = row.get("iata_code")
@@ -150,6 +154,9 @@ def update_airports():
             lon = float(row["longitude_deg"])
         except (ValueError, KeyError):
             continue
+        continent = row.get("continent")
+        if continent != "EU":
+            continue
         country_code = row.get("iso_country", "")
         airports[key] = {
             "name": name,
@@ -161,6 +168,8 @@ def update_airports():
             "country": country_map.get(country_code, country_code),
             "routes": []
         }
+        latitudes.append(lat)
+        longitudes.append(lon)
 
     # Load collected route data
     routes = load_json(ROUTES_DB_PATH, [])
@@ -234,9 +243,15 @@ def update_airports():
     write_json(AIRPORTS_FULL_PATH, list(airports.values()))
 
     # Build lookup structures for nearest airport queries using the full list
-    global AIRPORTS_MAP
+    global AIRPORTS_MAP, AIRPORTS_LAT_RANGE, AIRPORTS_LON_RANGE
     AIRPORTS_MAP = {a["code"]: a for a in airports.values()}
     build_airport_tree(airports.values())
+    if latitudes and longitudes:
+        AIRPORTS_LAT_RANGE = (min(latitudes), max(latitudes))
+        AIRPORTS_LON_RANGE = (min(longitudes), max(longitudes))
+    else:
+        AIRPORTS_LAT_RANGE = (None, None)
+        AIRPORTS_LON_RANGE = (None, None)
 
     # Update stats file with airport counts
     stats = load_json(STATS_PATH, {})
@@ -268,18 +283,34 @@ def update_routes():
 
     # Load airports for geolocation
     airports = {}
+    latitudes = []
+    longitudes = []
     if AIRPORTS_FULL_PATH.exists():
         try:
             a_list = load_json(AIRPORTS_FULL_PATH, [])
             airports = {a["code"]: a for a in a_list}
+            latitudes = [a.get("lat") for a in a_list if a.get("lat") is not None]
+            longitudes = [a.get("lon") for a in a_list if a.get("lon") is not None]
         except Exception:
             airports = {}
-    global AIRPORTS_MAP
+            latitudes = []
+            longitudes = []
+    global AIRPORTS_MAP, AIRPORTS_LAT_RANGE, AIRPORTS_LON_RANGE
     AIRPORTS_MAP = airports
     if AIRPORTS_MAP and AIRPORTS_TREE is None:
         build_airport_tree(AIRPORTS_MAP.values())
+    if latitudes and longitudes:
+        AIRPORTS_LAT_RANGE = (min(latitudes), max(latitudes))
+        AIRPORTS_LON_RANGE = (min(longitudes), max(longitudes))
+    else:
+        AIRPORTS_LAT_RANGE = (None, None)
+        AIRPORTS_LON_RANGE = (None, None)
 
     seen = set()
+    lat_range = AIRPORTS_LAT_RANGE
+    lon_range = AIRPORTS_LON_RANGE
+    lat_margin = 5.0
+    lon_margin = 5.0
     for s in data.get("states", []):
         icao24 = s[0]
         callsign = s[1].strip() if s[1] else ""
@@ -287,10 +318,19 @@ def update_routes():
         lat = s[6]
         if lat is None or lon is None:
             continue
+        if lat_range[0] is not None:
+            if lat < lat_range[0] - lat_margin or lat > lat_range[1] + lat_margin:
+                continue
+        if lon_range[0] is not None:
+            if lon < lon_range[0] - lon_margin or lon > lon_range[1] + lon_margin:
+                continue
         seen.add(icao24)
         prefix, number = parse_callsign(callsign)
         if icao24 in active:
             af = active[icao24]
+            if not af.get("origin"):
+                active.pop(icao24, None)
+                continue
             af["last_coord"] = [lat, lon]
             af["last_updated"] = now
             af["callsign"] = callsign
@@ -298,6 +338,8 @@ def update_routes():
             af["flight_number"] = number
         else:
             origin_ap = nearest_airport(lat, lon)
+            if not origin_ap:
+                continue
             active[icao24] = {
                 "callsign": callsign,
                 "airline": prefix,
